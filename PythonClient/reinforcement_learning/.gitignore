@@ -1,0 +1,14 @@
+# virtual environnmet
+.venv/
+
+# log directories
+tb_logs/
+car_env_logs/
+car_env_logs_saved/
+
+# models
+best_model*
+dqn_airsim_car_policy*
+
+# evaluation results of best model
+evaluations.npz
