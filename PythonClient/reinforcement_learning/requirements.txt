@@ -1,3 +1,4 @@
 msgpack-rpc-python
+npzviewer
 numpy==1.23.5
 stable-baselines3[extra]
