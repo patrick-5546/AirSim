@@ -11,7 +11,7 @@ from gym import spaces
 from airgym.envs.airsim_env import AirSimEnv
 
 
-LOG_DIR = '/home/pcreighton/git/nserc/AirSim/PythonClient/reinforcement_learning/car_env_logs'
+LOG_DIR = 'car_env_logs'
 ACTIONS_LOG_NAME = 'actions.txt'
 ACTIONS_LOG_PATH = os.path.join(LOG_DIR, ACTIONS_LOG_NAME)
 
