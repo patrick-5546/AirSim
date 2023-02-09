@@ -9,7 +9,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecTransposeImage
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.callbacks import EvalCallback
 
-# from custom_logs.callbacks import EvalCallbackCustomLog
+from sb3_overrides.callbacks import EvalCallbackCustomLog
 
 # Create a DummyVecEnv for main airsim gym env
 env = DummyVecEnv(
