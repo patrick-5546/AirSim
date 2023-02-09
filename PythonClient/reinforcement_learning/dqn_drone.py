@@ -8,6 +8,10 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, VecTransposeImage
 from stable_baselines3.common.callbacks import EvalCallback
 
+
+TEST_MODE = True
+
+
 # Create a DummyVecEnv for main airsim gym env
 env = DummyVecEnv(
     [
@@ -51,7 +55,7 @@ eval_callback = EvalCallback(
     n_eval_episodes=5,
     best_model_save_path="./drone_out/eval",
     log_path="./drone_out/eval",
-    eval_freq=10000,
+    eval_freq=5 if TEST_MODE else 10000,
 )
 callbacks.append(eval_callback)
 
@@ -61,7 +65,7 @@ kwargs["progress_bar"] = True
 
 # Train for a certain number of timesteps
 model.learn(
-    total_timesteps=5e5,
+    total_timesteps=10 if TEST_MODE else 5e5,
     tb_log_name="dqn_airsim_drone_run_" + time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime()),
     **kwargs
 )
