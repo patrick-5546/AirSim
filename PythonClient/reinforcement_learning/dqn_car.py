@@ -9,6 +9,8 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecTransposeImage
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.callbacks import EvalCallback
 
+# from custom_logs.callbacks import EvalCallbackCustomLog
+
 # Create a DummyVecEnv for main airsim gym env
 env = DummyVecEnv(
     [
@@ -51,12 +53,14 @@ eval_callback = EvalCallback(
     n_eval_episodes=5,
     best_model_save_path=".",
     log_path=".",
-    eval_freq=10000,
+    eval_freq=100,
 )
 callbacks.append(eval_callback)
 
 kwargs = {}
 kwargs["callback"] = callbacks
+kwargs["progress_bar"] = True
+
 
 # Train for a certain number of timesteps
 model.learn(
