@@ -77,4 +77,4 @@ model.learn(
 )
 
 # Save policy weights
-model.save("./car_out/dqn_airsim_car_policy")
+model.save("./car_out/model/dqn_airsim_car_policy")
