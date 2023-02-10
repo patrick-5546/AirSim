@@ -9,7 +9,13 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecTransposeImage
 from stable_baselines3.common.callbacks import EvalCallback
 
 
+START_TIME = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
+
 TEST_MODE = True
+MODEL_VERBOSE = 0 if TEST_MODE else 1
+N_EVAL_EPISODES = 1 if TEST_MODE else 5
+EVAL_FREQ = 5 if TEST_MODE else 10000
+TOTAL_TIMESTEPS = 10 if TEST_MODE else 5e5
 
 
 # Create a DummyVecEnv for main airsim gym env
@@ -34,7 +40,7 @@ model = DQN(
     "CnnPolicy",
     env,
     learning_rate=0.00025,
-    verbose=1,
+    verbose=MODEL_VERBOSE,
     batch_size=32,
     train_freq=4,
     target_update_interval=10000,
@@ -52,10 +58,10 @@ callbacks = []
 eval_callback = EvalCallback(
     env,
     callback_on_new_best=None,
-    n_eval_episodes=5,
+    n_eval_episodes=N_EVAL_EPISODES,
     best_model_save_path="./drone_out/eval",
     log_path="./drone_out/eval",
-    eval_freq=5 if TEST_MODE else 10000,
+    eval_freq=EVAL_FREQ,
 )
 callbacks.append(eval_callback)
 
@@ -65,8 +71,8 @@ kwargs["progress_bar"] = True
 
 # Train for a certain number of timesteps
 model.learn(
-    total_timesteps=10 if TEST_MODE else 5e5,
-    tb_log_name="dqn_airsim_drone_run_" + time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime()),
+    total_timesteps=TOTAL_TIMESTEPS,
+    tb_log_name="dqn_airsim_drone_run_" + START_TIME,
     **kwargs
 )
 

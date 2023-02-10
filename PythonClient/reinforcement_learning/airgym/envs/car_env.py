@@ -12,12 +12,13 @@ from airgym.envs.airsim_env import AirSimEnv
 
 
 LOG_DIR = 'car_out/env_logs'
-ACTIONS_LOG_NAME = 'actions.txt'
-ACTIONS_LOG_PATH = os.path.join(LOG_DIR, ACTIONS_LOG_NAME)
+REWARD_COL_WIDTH = 6
+EPISODE_COL_WIDTH = 7
+DONE_REASON_COL_WIDTH = 40
 
 
 class AirSimCarEnv(AirSimEnv):
-    def __init__(self, ip_address, image_shape):
+    def __init__(self, ip_address, image_shape, start_time):
         super().__init__(image_shape)
 
         self.image_shape = image_shape
@@ -41,19 +42,27 @@ class AirSimCarEnv(AirSimEnv):
         self.car_controls = airsim.CarControls()
         self.car_state = None
 
-        os.makedirs(LOG_DIR, exist_ok=True)
-        self.episode = 0
+        self.episode = 1
         self.step_obs = False
         self.obs = []
         self.action = ''
         self.actions = []
+        self.log_path = os.path.join(LOG_DIR, f'env_log_{start_time}.txt')
+        self.eval_episode = False
+        self.rewards = []
+
+        os.makedirs(LOG_DIR, exist_ok=True)
         for filename in os.listdir(LOG_DIR):
             filepath = os.path.join(LOG_DIR, filename)
             if os.path.isdir(filepath):
                 print('delete episode directory', filepath)
                 shutil.rmtree(filepath)
-        with open(ACTIONS_LOG_PATH, 'w') as f:
-            f.write('actions:\n')
+        header = ' | '.join([f'{"Episode" : <{EPISODE_COL_WIDTH}}',
+                             f'{"Reward" : <{REWARD_COL_WIDTH}}',
+                             f'{"Done Reason" : <{DONE_REASON_COL_WIDTH}}',
+                             "Actions"])
+        with open(self.log_path, 'w') as f:
+            f.write(f'{header}\n')
 
     def _setup_car(self):
         self.car.reset()
@@ -96,7 +105,7 @@ class AirSimCarEnv(AirSimEnv):
         img1d = 255 / np.maximum(np.ones(img1d.size), img1d)
         img2d = np.reshape(img1d, (response.height, response.width))
 
-        from PIL import Image, ImageEnhance
+        from PIL import Image  # , ImageEnhance
 
         image = Image.fromarray(img2d)
         if self.step_obs:
@@ -147,14 +156,17 @@ class AirSimCarEnv(AirSimEnv):
             )
 
         # print(dist)
+        done_reason = ""
         if dist > THRESH_DIST:
             reward = -3
+            done_reason = "too off course"
         else:
             reward_dist = math.exp(-BETA * dist) - 0.5
             reward_speed = (
                 (self.car_state.speed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED)
             ) - 0.5
             reward = reward_dist + reward_speed
+            done_reason = f"reward dist{{{reward_dist:.2f}}} + speed{{{reward_speed:.2f}}} < -1"
 
         done = 0
         if reward < -1:
@@ -162,26 +174,33 @@ class AirSimCarEnv(AirSimEnv):
         if self.car_controls.brake == 0:
             if self.car_state.speed <= 1:
                 done = 1
+                done_reason = "brake == 0 && speed <= 1"
         if self.state["collision"]:
             done = 1
+            done_reason = "collision == True"
 
-        return reward, done
+        return reward, done, done_reason
 
-    def _log(self, done, log_obs=False, log_actions=True):
+    def _log(self, reward, done, done_reason, log_obs=False):
         self.actions.append(self.action)
+        self.rewards.append(reward)
+
         if done:
             if log_obs:
                 ep_log_dir = os.path.join(LOG_DIR, str(self.episode))
                 os.makedirs(ep_log_dir, exist_ok=True)
-                # print(self.episode, len(self.obs), sep=': ')
                 for i, img in enumerate(self.obs):
                     img_name = os.path.join(ep_log_dir, f'{i}.jpg')
                     img.save(img_name)
 
-            if log_actions:
-                with open(ACTIONS_LOG_PATH, 'a') as f:
-                    actions = ' '.join(f'{a : >10}' for a in self.actions)
-                    f.write(f'{self.episode}: {actions}\n')
+            episode_reward = np.sum(self.rewards)
+            actions = ''.join(f'{a : <10}' for a in self.actions).strip()
+            row = ' | '.join([f'{self.episode : <{EPISODE_COL_WIDTH}}',
+                              f'{episode_reward : <{REWARD_COL_WIDTH}.2f}',
+                              f'{done_reason : <{DONE_REASON_COL_WIDTH}}',
+                              actions])
+            with open(self.log_path, 'a') as f:
+                f.write(f'{row}\n')
 
             self.episode += 1
 
@@ -190,8 +209,8 @@ class AirSimCarEnv(AirSimEnv):
         self.step_obs = True
         obs = self._get_obs()
         self.step_obs = False
-        reward, done = self._compute_reward()
-        self._log(done)
+        reward, done, done_reason = self._compute_reward()
+        self._log(reward, done, done_reason)
         return obs, reward, done, self.state
 
     def reset(self):
@@ -199,4 +218,5 @@ class AirSimCarEnv(AirSimEnv):
         self._do_action(1)
         self.obs = []
         self.actions = []
+        self.rewards = []
         return self._get_obs()
