@@ -11,9 +11,10 @@ from gym import spaces
 from airgym.envs.airsim_env import AirSimEnv
 
 
-LOG_DIR = 'car_out/env_logs'
-REWARD_COL_WIDTH = 6
+LOG_DIR = os.path.join('car_out', 'env_logs')
+OBS_DIR = os.path.join(LOG_DIR, 'obs')
 EPISODE_COL_WIDTH = 7
+REWARD_COL_WIDTH = 6
 DONE_REASON_COL_WIDTH = 40
 
 
@@ -42,7 +43,7 @@ class AirSimCarEnv(AirSimEnv):
         self.car_controls = airsim.CarControls()
         self.car_state = None
 
-        self.episode = 1
+        self.episode = 0
         self.step_obs = False
         self.obs = []
         self.action = ''
@@ -51,9 +52,9 @@ class AirSimCarEnv(AirSimEnv):
         self.eval_episode = False
         self.rewards = []
 
-        os.makedirs(LOG_DIR, exist_ok=True)
-        for filename in os.listdir(LOG_DIR):
-            filepath = os.path.join(LOG_DIR, filename)
+        os.makedirs(OBS_DIR, exist_ok=True)
+        for filename in os.listdir(OBS_DIR):
+            filepath = os.path.join(OBS_DIR, filename)
             if os.path.isdir(filepath):
                 print('delete episode directory', filepath)
                 shutil.rmtree(filepath)
@@ -186,9 +187,11 @@ class AirSimCarEnv(AirSimEnv):
         self.rewards.append(reward)
 
         if done:
+            self.episode += 1
+
             if log_obs:
-                ep_log_dir = os.path.join(LOG_DIR, str(self.episode))
-                os.makedirs(ep_log_dir, exist_ok=True)
+                ep_log_dir = os.path.join(OBS_DIR, str(self.episode))
+                os.mkdir(ep_log_dir)
                 for i, img in enumerate(self.obs):
                     img_name = os.path.join(ep_log_dir, f'{i}.jpg')
                     img.save(img_name)
@@ -201,8 +204,6 @@ class AirSimCarEnv(AirSimEnv):
                               actions])
             with open(self.log_path, 'a') as f:
                 f.write(f'{row}\n')
-
-            self.episode += 1
 
     def step(self, action):
         self._do_action(action)
