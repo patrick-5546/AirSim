@@ -11,7 +11,7 @@ from stable_baselines3.common.callbacks import EvalCallback
 
 START_TIME = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
 
-TEST_MODE = True
+TEST_MODE = False
 MODEL_VERBOSE = 0 if TEST_MODE else 1
 N_EVAL_EPISODES = 1 if TEST_MODE else 5
 EVAL_FREQ = 5 if TEST_MODE else 10000
@@ -59,8 +59,8 @@ eval_callback = EvalCallback(
     env,
     callback_on_new_best=None,
     n_eval_episodes=N_EVAL_EPISODES,
-    best_model_save_path="./car_out/eval",
-    log_path="./car_out/eval",
+    best_model_save_path="./car_out/eval/" + START_TIME,
+    log_path="./car_out/eval/" + START_TIME,
     eval_freq=EVAL_FREQ,
 )
 callbacks.append(eval_callback)
@@ -77,4 +77,4 @@ model.learn(
 )
 
 # Save policy weights
-model.save("./car_out/model/dqn_airsim_car_policy")
+model.save("./car_out/model/dqn_airsim_car_policy_" + START_TIME)

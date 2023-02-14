@@ -59,8 +59,8 @@ eval_callback = EvalCallback(
     env,
     callback_on_new_best=None,
     n_eval_episodes=N_EVAL_EPISODES,
-    best_model_save_path="./drone_out/eval",
-    log_path="./drone_out/eval",
+    best_model_save_path="./drone_out/eval/" + START_TIME,
+    log_path="./drone_out/eval/" + START_TIME,
     eval_freq=EVAL_FREQ,
 )
 callbacks.append(eval_callback)
@@ -77,4 +77,4 @@ model.learn(
 )
 
 # Save policy weights
-model.save("./drone_out/model/dqn_airsim_drone_policy")
+model.save("./drone_out/model/dqn_airsim_drone_policy_" + START_TIME)
