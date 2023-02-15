@@ -139,12 +139,15 @@ class AirSimCarEnv(AirSimEnv):
         pts = [
             np.array([x, y, 0])
             for x, y in [
-                (0, -1), (130, -1), (130, 125), (0, 125),
-                (0, -1), (130, -1), (130, -128), (0, -128),
+                (0, -1), (128, -1), (128, 127), (0, 127),
+                (0, -1), (128, -1), (128, -128), (0, -128),
                 (0, -1),
             ]
         ]
+        pts -= pts[0]
+
         car_pt = self.state["pose"].position.to_numpy_array()
+        # print(f'position = ({car_pt[0]:.2f}, {car_pt[1]:.2f})')
 
         dist = 10000000
         for i in range(0, len(pts) - 1):
@@ -168,6 +171,9 @@ class AirSimCarEnv(AirSimEnv):
             ) - 0.5
             reward = reward_dist + reward_speed
             done_reason = f"reward dist{{{reward_dist:.2f}}} + speed{{{reward_speed:.2f}}} < -1"
+
+            # print(f'dist = {dist:.2f}\tspeed = {self.car_state.speed:.2f}')
+            # print(done_reason)
 
         done = 0
         if reward < -1:
