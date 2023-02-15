@@ -133,7 +133,7 @@ class AirSimCarEnv(AirSimEnv):
     def _compute_reward(self):
         MAX_SPEED = 300
         MIN_SPEED = 10
-        THRESH_DIST = 3.5
+        THRESH_DIST = 3
         BETA = 0.7
 
         pts = [
@@ -193,6 +193,7 @@ class AirSimCarEnv(AirSimEnv):
 
         if done:
             self.episode += 1
+            print(f'{done_reason=}')
 
             if log_obs:
                 ep_log_dir = os.path.join(OBS_DIR, str(self.episode))
