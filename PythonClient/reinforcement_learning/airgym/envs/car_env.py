@@ -131,10 +131,11 @@ class AirSimCarEnv(AirSimEnv):
         return image
 
     def _compute_reward(self):
-        MAX_SPEED = 300
-        MIN_SPEED = 10
+        # graph of reward functions: https://www.desmos.com/calculator/rnget9xoga
+        DESIRED_SPEED = 10
         THRESH_DIST = 3
         BETA = 0.7
+        ALPHA = 0.019
 
         pts = [
             np.array([x, y])
@@ -166,9 +167,7 @@ class AirSimCarEnv(AirSimEnv):
             done_reason = "too off course"
         else:
             reward_dist = math.exp(-BETA * dist) - 0.5
-            reward_speed = (
-                (self.car_state.speed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED)
-            ) - 0.5
+            reward_speed = -ALPHA * (self.car_state.speed - DESIRED_SPEED) ** 2 + 0.5
             reward = reward_dist + reward_speed
             done_reason = f"reward dist{{{reward_dist:.2f}}} + speed{{{reward_speed:.2f}}} < -1"
 
