@@ -134,7 +134,7 @@ class AirSimCarEnv(AirSimEnv):
         MAX_SPEED = 300
         MIN_SPEED = 10
         THRESH_DIST = 3.5
-        BETA = 3
+        BETA = 0.7
 
         pts = [
             np.array([x, y])
@@ -172,8 +172,7 @@ class AirSimCarEnv(AirSimEnv):
             reward = reward_dist + reward_speed
             done_reason = f"reward dist{{{reward_dist:.2f}}} + speed{{{reward_speed:.2f}}} < -1"
 
-            # print(f'dist = {dist:.2f}\tspeed = {self.car_state.speed:.2f}')
-            # print(done_reason)
+            # print(f'dist = {dist:.4f}\treward_dist = {reward_dist:.2f}\tspeed = {self.car_state.speed:.2f}\treward_speed = {reward_speed:.2f}')
 
         done = 0
         if reward < -1:
