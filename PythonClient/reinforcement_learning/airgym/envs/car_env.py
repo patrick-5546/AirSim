@@ -137,7 +137,7 @@ class AirSimCarEnv(AirSimEnv):
         BETA = 3
 
         pts = [
-            np.array([x, y, 0])
+            np.array([x, y])
             for x, y in [
                 (0, -1), (128, -1), (128, 127), (0, 127),
                 (0, -1), (128, -1), (128, -128), (0, -128),
@@ -146,7 +146,7 @@ class AirSimCarEnv(AirSimEnv):
         ]
         pts -= pts[0]
 
-        car_pt = self.state["pose"].position.to_numpy_array()
+        car_pt = self.state["pose"].position.to_numpy_array()[:2]
         # print(f'position = ({car_pt[0]:.2f}, {car_pt[1]:.2f})')
 
         dist = 10000000
