@@ -132,7 +132,6 @@ class AirSimCarEnv(AirSimEnv):
         return image
 
     def _compute_reward(self, verbose=False,
-                        done_dist=False,
                         func_speed=False, done_speed=False,
                         func_length=False):
         # initial done conditions
@@ -144,7 +143,7 @@ class AirSimCarEnv(AirSimEnv):
 
         # reward components
         # graph of reward functions: https://www.desmos.com/calculator/rnget9xoga
-        reward_dist, done, done_reason = self._compute_reward_dist(verbose, done_dist)
+        reward_dist, done, done_reason = self._compute_reward_dist(verbose)
         if done:
             return reward_dist, done, done_reason
 
@@ -170,9 +169,9 @@ class AirSimCarEnv(AirSimEnv):
         print(f'unbounded reward components:\t{reward_dist = :.2f}\t{reward_speed = :.2f}\t{reward_length = :.2f}')
         return reward, done, done_reason
 
-    def _compute_reward_dist(self, verbose, done_dist):
+    def _compute_reward_dist(self, verbose):
         DIST_DECAY = 1
-        DIST_THRESH = 3
+        DIST_THRESH = 4
         PATH = [
             np.array([x, y])
             for x, y in [
@@ -199,7 +198,7 @@ class AirSimCarEnv(AirSimEnv):
         if verbose:
             print(f'{dist = :.2f}', end='\t')
 
-        if done_dist and dist > DIST_THRESH:
+        if dist > DIST_THRESH:
             reward = 0
             done = True
             done_reason = "too off course"
