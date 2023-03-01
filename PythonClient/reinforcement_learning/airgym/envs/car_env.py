@@ -51,6 +51,7 @@ class AirSimCarEnv(AirSimEnv):
         self.log_path = os.path.join(LOG_DIR, f'env_log_{start_time}.txt')
         self.eval_episode = False
         self.rewards = []
+        self.step_cnt = 0
 
         os.makedirs(OBS_DIR, exist_ok=True)
         for filename in os.listdir(OBS_DIR):
@@ -130,14 +131,49 @@ class AirSimCarEnv(AirSimEnv):
 
         return image
 
-    def _compute_reward(self):
-        # graph of reward functions: https://www.desmos.com/calculator/rnget9xoga
-        DESIRED_SPEED = 10
-        THRESH_DIST = 3
-        BETA = 0.7
-        ALPHA = 0.019
+    def _compute_reward(self, verbose=False,
+                        done_dist=False,
+                        func_speed=False, done_speed=False,
+                        func_length=False):
+        # initial done conditions
+        if self.state["collision"]:
+            reward = 0
+            done = True
+            done_reason = "collision occurred"
+            return reward, done, done_reason
 
-        pts = [
+        # reward components
+        # graph of reward functions: https://www.desmos.com/calculator/rnget9xoga
+        reward_dist, done, done_reason = self._compute_reward_dist(verbose, done_dist)
+        if done:
+            return reward_dist, done, done_reason
+
+        reward_speed, done, done_reason = self._compute_reward_speed(verbose, func_speed, done_speed)
+        if done:
+            return reward_speed, done, done_reason
+
+        # no need to make reward a function of length if reward >= 0
+        reward_length, done, done_reason = self._compute_reward_length(verbose, func_length)
+        if done:
+            return reward_length, done, done_reason
+
+        # bound reward to [0, 1]
+        # assumes each reward component is in [0, 1]
+        num_funcs = 1
+        if func_speed:
+            num_funcs += 1
+        if func_speed:
+            num_funcs += 1
+        reward = 1 / num_funcs * (reward_dist + reward_speed + reward_length)
+        done = False
+        done_reason = ""
+        print(f'unbounded reward components:\t{reward_dist = :.2f}\t{reward_speed = :.2f}\t{reward_length = :.2f}')
+        return reward, done, done_reason
+
+    def _compute_reward_dist(self, verbose, done_dist):
+        DIST_DECAY = 1
+        DIST_THRESH = 3
+        PATH = [
             np.array([x, y])
             for x, y in [
                 (0, -1), (128, -1), (128, 127), (0, 127),
@@ -145,45 +181,68 @@ class AirSimCarEnv(AirSimEnv):
                 (0, -1),
             ]
         ]
-        pts -= pts[0]
+        PATH -= PATH[0]
 
         car_pt = self.state["pose"].position.to_numpy_array()[:2]
-        # print(f'position = ({car_pt[0]:.2f}, {car_pt[1]:.2f})')
+        if verbose:
+            print(f'position = ({car_pt[0]:.2f}, {car_pt[1]:.2f})', end='\t')
 
         dist = 10000000
-        for i in range(0, len(pts) - 1):
+        for i in range(0, len(PATH) - 1):
             dist = min(
                 dist,
                 np.linalg.norm(
-                    np.cross((car_pt - pts[i]), (car_pt - pts[i + 1]))
+                    np.cross((car_pt - PATH[i]), (car_pt - PATH[i + 1]))
                 )
-                / np.linalg.norm(pts[i] - pts[i + 1]),
+                / np.linalg.norm(PATH[i] - PATH[i + 1]),
             )
+        if verbose:
+            print(f'{dist = :.2f}', end='\t')
 
-        # print(dist)
-        done_reason = ""
-        if dist > THRESH_DIST:
-            reward = -3
+        if done_dist and dist > DIST_THRESH:
+            reward = 0
+            done = True
             done_reason = "too off course"
         else:
-            reward_dist = math.exp(-BETA * dist) - 0.5
-            reward_speed = -ALPHA * (self.car_state.speed - DESIRED_SPEED) ** 2 + 0.5
-            reward = reward_dist + reward_speed
-            done_reason = f"reward dist{{{reward_dist:.2f}}} + speed{{{reward_speed:.2f}}} < -1"
+            reward_dist = math.exp(-DIST_DECAY * dist)
+            if verbose:
+                print(f'{reward_dist = :.2f}')
+            reward, done, done_reason = reward_dist, False, ""
+        return reward, done, done_reason
 
-            # print(f'dist = {dist:.4f}\treward_dist = {reward_dist:.2f}\tspeed = {self.car_state.speed:.2f}\treward_speed = {reward_speed:.2f}')
+    def _compute_reward_speed(self, verbose, func_speed, done_speed):
+        SPEED_MIN = -1
+        SPEED_DESIRED = 10
+        SPEED_MAX = 25
+        SPEED_A = 0.01
+        SPEED_C = 1
 
-        done = 0
-        if reward < -1:
-            done = 1
-        if self.car_controls.brake == 0:
-            if self.car_state.speed <= 1:
-                done = 1
-                done_reason = "brake == 0 && speed <= 1"
-        if self.state["collision"]:
-            done = 1
-            done_reason = "collision == True"
+        speed = self.car_state.speed
+        if verbose:
+            print(f'{speed = :.2f}', end='\t')
 
+        if func_speed and done_speed and (SPEED_MIN > speed or speed > SPEED_MAX):
+            reward = 0
+            done = True
+            done_reason = "too fast"
+        else:
+            reward_speed = -SPEED_A * (self.car_state.speed - SPEED_DESIRED) ** 2 + SPEED_C if func_speed else 0
+            if verbose:
+                print(f'{reward_speed = :.2f}\t{func_speed = }')
+            reward, done, done_reason = reward_speed, False, ""
+        return reward, done, done_reason
+
+    def _compute_reward_length(self, verbose, func_length):
+        LENGTH_DECAY = 0.1
+
+        length = self.step_cnt
+        if verbose:
+            print(f'{length = }', end='\t')
+
+        reward_length = -math.exp(-LENGTH_DECAY * length) if func_length else 0
+        if verbose:
+            print(f'{reward_length = :.2f}\t{func_length = }')
+        reward, done, done_reason = reward_length, False, ""
         return reward, done, done_reason
 
     def _log(self, reward, done, done_reason, log_obs=False):
@@ -217,6 +276,7 @@ class AirSimCarEnv(AirSimEnv):
         self.step_obs = False
         reward, done, done_reason = self._compute_reward()
         self._log(reward, done, done_reason)
+        self.step_cnt += 1
         return obs, reward, done, self.state
 
     def reset(self):
@@ -225,4 +285,5 @@ class AirSimCarEnv(AirSimEnv):
         self.obs = []
         self.actions = []
         self.rewards = []
+        self.step_cnt = 0
         return self._get_obs()
