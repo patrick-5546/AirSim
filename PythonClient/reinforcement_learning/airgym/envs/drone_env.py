@@ -70,8 +70,8 @@ class AirSimDroneEnv(AirSimEnv):
         self.drone.armDisarm(True)
 
         # Set home position and velocity
-        self.drone.moveToPositionAsync(0, -1, -10, 10).join()
-        self.drone.moveByVelocityAsync(0, 0, 0, 5).join()
+        self.drone.moveToPositionAsync(0, -1, -7, 10).join()
+        self.drone.moveByVelocityAsync(1.5, 0, 0, 5).join()
 
     def transform_obs(self, responses):
         img1d = np.array(responses[0].image_data_float, dtype=np.float)
@@ -115,10 +115,12 @@ class AirSimDroneEnv(AirSimEnv):
         ).join()
 
     def _compute_reward(self):
-        thresh_dist = 7
-        beta = 1
+        THRESH_DIST = 3
+        # distance reward function
+        # graph https://www.desmos.com/calculator/vcdoromtfy
+        ALPHA, BETA, GAMMA = 3, 0.7, 1
 
-        z = -10
+        z = -9
         pts = [
             np.array([x, y, z])
             for x, y in [
@@ -167,11 +169,11 @@ class AirSimDroneEnv(AirSimEnv):
 
                 print(f'quad_pt={format_float_list(quad_pt)}', f'dist_pt={format_int_list(dist_pt)}', sep=' ', end=' ')
 
-            if dist > thresh_dist:
+            if dist > THRESH_DIST:
                 reward = -10
-                done_reason = f'dist{{{dist:.2f}}}>thresh_dist{{{thresh_dist:.2f}}}'
+                done_reason = f'dist{{{dist:.2f}}}>THRESH_DIST{{{THRESH_DIST:.2f}}}'
             else:
-                reward_dist = math.exp(-beta * dist) - 0.5
+                reward_dist = ALPHA * math.exp(-BETA * dist) - GAMMA
                 speed = np.linalg.norm([
                     self.state["velocity"].x_val,
                     self.state["velocity"].y_val,
