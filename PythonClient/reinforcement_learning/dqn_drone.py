@@ -11,8 +11,9 @@ from stable_baselines3.common.callbacks import EvalCallback
 
 START_TIME = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
 
-TEST_MODE = True
+TEST_MODE = False
 MODEL_VERBOSE = 0 if TEST_MODE else 1
+ENV_VERBOSE = 1 if TEST_MODE else 0
 N_EVAL_EPISODES = 1 if TEST_MODE else 5
 EVAL_FREQ = 5 if TEST_MODE else 10000
 TOTAL_TIMESTEPS = 10 if TEST_MODE else 5e5
@@ -27,6 +28,8 @@ env = DummyVecEnv(
                 ip_address="127.0.0.1",
                 step_length=0.25,
                 image_shape=(84, 84, 1),
+                start_time=START_TIME,
+                verbose=ENV_VERBOSE,
             )
         )
     ]
