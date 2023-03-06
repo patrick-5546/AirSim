@@ -49,7 +49,6 @@ class AirSimCarEnv(AirSimEnv):
         self.action = ''
         self.actions = []
         self.log_path = os.path.join(LOG_DIR, f'env_log_{start_time}.txt')
-        self.eval_episode = False
         self.rewards = []
         self.step_cnt = 0
 
