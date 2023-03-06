@@ -133,13 +133,6 @@ class AirSimCarEnv(AirSimEnv):
     def _compute_reward(self, verbose=False,
                         func_speed=False, done_speed=False,
                         func_length=False):
-        # initial done conditions
-        if self.state["collision"]:
-            reward = 0
-            done = True
-            done_reason = "collision occurred"
-            return reward, done, done_reason
-
         # reward components
         # graph of reward functions: https://www.desmos.com/calculator/rnget9xoga
         reward_dist, done, done_reason = self._compute_reward_dist(verbose)
@@ -163,9 +156,14 @@ class AirSimCarEnv(AirSimEnv):
         if func_speed:
             num_funcs += 1
         reward = 1 / num_funcs * (reward_dist + reward_speed + reward_length)
-        done = False
-        done_reason = ""
-        print(f'unbounded reward components:\t{reward_dist = :.2f}\t{reward_speed = :.2f}\t{reward_length = :.2f}')
+
+        if self.state["collision"]:
+            done = True
+            done_reason = "collision occurred"
+        else:
+            done = False
+            done_reason = ""
+            print(f'unbounded reward components:\t{reward_dist = :.2f}\t{reward_speed = :.2f}\t{reward_length = :.2f}')
         return reward, done, done_reason
 
     def _compute_reward_dist(self, verbose):
@@ -198,7 +196,7 @@ class AirSimCarEnv(AirSimEnv):
             print(f'{dist = :.2f}', end='\t')
 
         if dist > DIST_THRESH:
-            reward = 0
+            reward = -3
             done = True
             done_reason = "too off course"
         else:
