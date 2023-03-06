@@ -115,10 +115,11 @@ class AirSimDroneEnv(AirSimEnv):
         ).join()
 
     def _compute_reward(self):
-        THRESH_DIST = 3
+        THRESH_DIST = 5
         # distance reward function
-        # graph https://www.desmos.com/calculator/vcdoromtfy
-        ALPHA, BETA, GAMMA = 3, 0.7, 1
+        # graph https://www.desmos.com/calculator/qgjyuw2w4u
+        # BETA should be around half THRESH_DIST
+        ALPHA, BETA, GAMMA = 3, 0.3, 1
 
         z = -9
         pts = [
