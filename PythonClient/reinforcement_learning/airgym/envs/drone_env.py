@@ -11,7 +11,8 @@ import gym
 from gym import spaces
 from airgym.envs.airsim_env import AirSimEnv
 
-
+LEN_TIMESTEP = 1
+# logging
 LOG_DIR = os.path.join('drone_out', 'env_logs')
 OBS_DIR = os.path.join(LOG_DIR, 'obs')
 EPISODE_COL_WIDTH = 7
@@ -71,7 +72,7 @@ class AirSimDroneEnv(AirSimEnv):
 
         # Set home position and velocity
         self.drone.moveToPositionAsync(0, -1, -7, 10).join()
-        self.drone.moveByVelocityAsync(1.5, 0, 0, 5).join()
+        self.drone.moveByVelocityAsync(1.5, 0, 0, LEN_TIMESTEP).join()
 
     def transform_obs(self, responses):
         img1d = np.array(responses[0].image_data_float, dtype=np.float)
@@ -111,7 +112,7 @@ class AirSimDroneEnv(AirSimEnv):
             quad_vel.x_val + quad_offset[0],
             quad_vel.y_val + quad_offset[1],
             quad_vel.z_val + quad_offset[2],
-            5,
+            LEN_TIMESTEP,
         ).join()
 
     def _compute_reward(self):
