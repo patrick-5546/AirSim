@@ -71,7 +71,7 @@ class AirSimDroneEnv(AirSimEnv):
         self.drone.armDisarm(True)
 
         # Set home position and velocity
-        self.drone.moveToPositionAsync(0, -1, -8.3, 5).join()
+        self.drone.moveToPositionAsync(0, 0, -8.3, 5).join()
         self.drone.moveByVelocityAsync(1.5, 0, 0, LEN_TIMESTEP).join()
 
     def transform_obs(self, responses):
@@ -120,15 +120,16 @@ class AirSimDroneEnv(AirSimEnv):
         # graph of distance and speed function: https://www.desmos.com/calculator/wzi1gu70k0
         # reward function constants
         # x intercept of distance function should be approximately half THRESH_DIST
-        ALPHA, BETA, GAMMA = 3, 0.3, 1
+        DIST_A, DIST_B, DIST_C = 1, 0.25, 0.5
+        SPEED_A, SPEED_B = 0.5, 0.5
 
         z = -9
         pts = [
             np.array([x, y, z])
             for x, y in [
-                (0, -1), (128, -1), (128, 127), (0, 127),
-                (0, -1), (128, -1), (128, -128), (0, -128),
-                (0, -1),
+                (0, 0), (128, 0), (128, 127), (0, 127),
+                (0, 0), (128, 0), (128, -128), (0, -128),
+                (0, 0),
             ]
         ]
 
@@ -175,13 +176,14 @@ class AirSimDroneEnv(AirSimEnv):
                 reward = -10
                 done_reason = f'dist{{{dist:.2f}}}>THRESH_DIST{{{THRESH_DIST:.2f}}}'
             else:
-                reward_dist = ALPHA * math.exp(-BETA * dist) - GAMMA
+                reward_dist = DIST_A * math.exp(-DIST_B * dist) - DIST_C
                 speed = np.linalg.norm([
                     self.state["velocity"].x_val,
                     self.state["velocity"].y_val,
                     self.state["velocity"].z_val,
                     ])
-                reward_speed = speed - 0.5 if speed - 0.5 < ALPHA - GAMMA else ALPHA - GAMMA
+                reward_speed = SPEED_A * speed - SPEED_B if SPEED_A * speed - SPEED_B < DIST_A - DIST_C \
+                    else DIST_A - DIST_C
                 reward = reward_dist + reward_speed
                 done_reason = f'r_dist{{{reward_dist:.2f}}}+r_speed{{{reward_speed:.2f}}}<=-10'
                 if self.verbose:
