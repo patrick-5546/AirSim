@@ -15,8 +15,8 @@ TEST_MODE = False
 MODEL_VERBOSE = 0 if TEST_MODE else 1
 ENV_VERBOSE = 1 if TEST_MODE else 0
 N_EVAL_EPISODES = 1 if TEST_MODE else 5
-EVAL_FREQ = 5 if TEST_MODE else 10000
-TOTAL_TIMESTEPS = 10 if TEST_MODE else 5e5
+EVAL_FREQ = 5 if TEST_MODE else 10_000
+TOTAL_TIMESTEPS = 10 if TEST_MODE else 250_000
 
 
 # Create a DummyVecEnv for main airsim gym env
@@ -42,16 +42,9 @@ env = VecTransposeImage(env)
 model = DQN(
     "CnnPolicy",
     env,
-    learning_rate=0.00025,
+    buffer_size=500_000,
+    learning_starts=25_000,
     verbose=MODEL_VERBOSE,
-    batch_size=32,
-    train_freq=4,
-    target_update_interval=10000,
-    learning_starts=10000,
-    buffer_size=500000,
-    max_grad_norm=10,
-    exploration_fraction=0.1,
-    exploration_final_eps=0.01,
     device="cuda",
     tensorboard_log="./drone_out/tb_logs/",
 )
