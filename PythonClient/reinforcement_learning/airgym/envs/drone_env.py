@@ -119,10 +119,11 @@ class AirSimDroneEnv(AirSimEnv):
 
     def _compute_reward(self):
         THRESH_DIST = 5
-        # graph of distance and speed function: https://www.desmos.com/calculator/wzi1gu70k0
+        THRESH_DIST_PENALTY = 10
+        # graph of distance and speed reward functions: https://www.desmos.com/calculator/nbmbsktod2
         # reward function constants
         # x intercept of distance function should be approximately half THRESH_DIST
-        DIST_A, DIST_B, DIST_C = 1, 0.25, 0.5
+        DIST_A, DIST_B, DIST_C = 1, 0.2, 0.5
         SPEED_A, SPEED_B = 0.5, 0.5
 
         z = -9
@@ -175,7 +176,7 @@ class AirSimDroneEnv(AirSimEnv):
                 print(f'quad_pt={format_float_list(quad_pt)}', f'dist_pt={format_int_list(dist_pt)}', sep=' ', end=' ')
 
             if dist > THRESH_DIST:
-                reward = -10
+                reward = -THRESH_DIST_PENALTY
                 done_reason = f'dist{{{dist:.2f}}}>THRESH_DIST{{{THRESH_DIST:.2f}}}'
             else:
                 reward_dist = DIST_A * math.exp(-DIST_B * dist) - DIST_C
@@ -194,7 +195,7 @@ class AirSimDroneEnv(AirSimEnv):
                     print(f'{reward=:.2f}')
 
         done = 0
-        if reward <= -10:
+        if reward <= -THRESH_DIST_PENALTY:
             done = 1
 
         return reward, done, done_reason
