@@ -117,9 +117,9 @@ class AirSimDroneEnv(AirSimEnv):
 
     def _compute_reward(self):
         THRESH_DIST = 5
-        # distance reward function
-        # graph https://www.desmos.com/calculator/qgjyuw2w4u
-        # BETA should be around half THRESH_DIST
+        # graph of distance and speed function: https://www.desmos.com/calculator/wzi1gu70k0
+        # reward function constants
+        # x intercept of distance function should be approximately half THRESH_DIST
         ALPHA, BETA, GAMMA = 3, 0.3, 1
 
         z = -9
@@ -181,7 +181,7 @@ class AirSimDroneEnv(AirSimEnv):
                     self.state["velocity"].y_val,
                     self.state["velocity"].z_val,
                     ])
-                reward_speed = speed - 0.5
+                reward_speed = speed - 0.5 if speed - 0.5 < ALPHA - GAMMA else ALPHA - GAMMA
                 reward = reward_dist + reward_speed
                 done_reason = f'r_dist{{{reward_dist:.2f}}}+r_speed{{{reward_speed:.2f}}}<=-10'
                 if self.verbose:
