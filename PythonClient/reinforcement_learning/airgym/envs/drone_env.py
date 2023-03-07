@@ -71,6 +71,8 @@ class AirSimDroneEnv(AirSimEnv):
         self.drone.armDisarm(True)
 
         # Set home position and velocity
+        # set position to be slightly closer to the origin than the desired position (first point in path)
+        # to account for inertia
         self.drone.moveToPositionAsync(0, 0, -8.3, 5).join()
         self.drone.moveByVelocityAsync(1.5, 0, 0, LEN_TIMESTEP).join()
 
