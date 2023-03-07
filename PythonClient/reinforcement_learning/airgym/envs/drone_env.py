@@ -11,7 +11,7 @@ import gym
 from gym import spaces
 from airgym.envs.airsim_env import AirSimEnv
 
-LEN_TIMESTEP = 1
+LEN_TIMESTEP = 2
 # logging
 LOG_DIR = os.path.join('drone_out', 'env_logs')
 OBS_DIR = os.path.join(LOG_DIR, 'obs')
@@ -71,7 +71,7 @@ class AirSimDroneEnv(AirSimEnv):
         self.drone.armDisarm(True)
 
         # Set home position and velocity
-        self.drone.moveToPositionAsync(0, -1, -7, 10).join()
+        self.drone.moveToPositionAsync(0, -1, -8.3, 5).join()
         self.drone.moveByVelocityAsync(1.5, 0, 0, LEN_TIMESTEP).join()
 
     def transform_obs(self, responses):
