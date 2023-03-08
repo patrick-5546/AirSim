@@ -42,8 +42,8 @@ env = VecTransposeImage(env)
 model = DQN(
     "CnnPolicy",
     env,
-    buffer_size=500_000,
-    learning_starts=25_000,
+    buffer_size=200_000,
+    learning_starts=10_000,
     verbose=MODEL_VERBOSE,
     device="cuda",
     tensorboard_log="./drone_out/tb_logs/",

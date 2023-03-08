@@ -118,7 +118,7 @@ class AirSimDroneEnv(AirSimEnv):
         ).join()
 
     def _compute_reward(self):
-        THRESH_DIST = 5
+        THRESH_DIST = 4
         THRESH_DIST_PENALTY = 10
         # graph of distance and speed reward functions: https://www.desmos.com/calculator/nbmbsktod2
         # reward function constants
