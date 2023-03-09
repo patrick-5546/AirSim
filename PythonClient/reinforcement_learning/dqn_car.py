@@ -48,7 +48,7 @@ if not LOAD_MODEL:
         batch_size=32,
         train_freq=4,
         target_update_interval=10000,
-        learning_starts=200000,
+        learning_starts=20000,
         buffer_size=500000,
         max_grad_norm=10,
         exploration_fraction=0.1,
