@@ -1,12 +1,13 @@
-import setup_path
 import gym
-import airgym
+import setup_path
 import time
 
+import airgym
+
 from stable_baselines3 import DQN
+from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, VecTransposeImage
-from stable_baselines3.common.callbacks import EvalCallback
 
 
 START_TIME = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
