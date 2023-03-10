@@ -40,6 +40,8 @@ class AirSimDroneEnv(AirSimEnv):
             3, airsim.ImageType.DepthPerspective, True, False
         )
 
+        self.path_seg = 1
+
         # logging
         self.verbose = verbose
         self.step_obs = False
@@ -119,64 +121,25 @@ class AirSimDroneEnv(AirSimEnv):
 
     def _compute_reward(self):
         THRESH_DIST = 4
-        THRESH_DIST_PENALTY = 10
         # graph of distance and speed reward functions: https://www.desmos.com/calculator/nbmbsktod2
         # reward function constants
         # x intercept of distance function should be approximately half THRESH_DIST
         DIST_A, DIST_B, DIST_C = 1, 0.2, 0.5
         SPEED_A, SPEED_B = 0.5, 0.5
 
-        z = -9
-        pts = [
-            np.array([x, y, z])
-            for x, y in [
-                (0, 0), (128, 0), (128, 127), (0, 127),
-                (0, 0), (128, 0), (128, -128), (0, -128),
-                (0, 0),
-            ]
-        ]
-
-        quad_pt = np.array(
-            list(
-                (
-                    self.state["position"].x_val,
-                    self.state["position"].y_val,
-                    self.state["position"].z_val,
-                )
-            )
-        )
-
         if self.state["collision"]:
             reward = -100
+            done = 1
             done_reason = 'collision'
         else:
-            dist = 10000000
-            for i in range(0, len(pts) - 1):
-                dist = min(
-                    dist,
-                    # np.linalg.norm(np.cross((quad_pt - pts[i]), (quad_pt - pts[i + 1])))
-                    # / np.linalg.norm(pts[i] - pts[i + 1]),
-                    pnt2line(quad_pt, pts[i], pts[i + 1])[0],
-                )
-            if self.verbose:
-                dists = [(pts[i],
-                          #   np.linalg.norm(np.cross((quad_pt - pts[i]), (quad_pt - pts[i + 1])))
-                          #   / np.linalg.norm(pts[i] - pts[i + 1]))
-                          pnt2line(quad_pt, pts[i], pts[i + 1])[0])
-                         for i in range(len(pts)-1)
-                         ]
-                dist_pt, _ = min(dists, key=lambda x: x[1])
-
-                def format_float_list(list_):
-                    return '[{:.2f},{:.2f},{:.2f}]'.format(*list_)
-
-                def format_int_list(list_):
-                    return '[{},{},{}]'.format(*list_)
-
-                print(f'quad_pt={format_float_list(quad_pt)}', f'dist_pt={format_int_list(dist_pt)}', sep=' ', end=' ')
-
-            if dist > THRESH_DIST:
-                reward = -THRESH_DIST_PENALTY
+            dist, reached_destination = self._get_dist(THRESH_DIST)
+            if reached_destination:
+                reward = 1000
+                done = 1
+                done_reason = 'reached destination'
+            elif dist > THRESH_DIST:
+                reward = -10
+                done = 1
                 done_reason = f'dist{{{dist:.2f}}}>THRESH_DIST{{{THRESH_DIST:.2f}}}'
             else:
                 reward_dist = DIST_A * math.exp(-DIST_B * dist) - DIST_C
@@ -187,18 +150,72 @@ class AirSimDroneEnv(AirSimEnv):
                     ])
                 reward_speed = SPEED_A * speed - SPEED_B if SPEED_A * speed - SPEED_B < DIST_A - DIST_C \
                     else DIST_A - DIST_C
+
                 reward = reward_dist + reward_speed
+                done = 0
                 done_reason = f'r_dist{{{reward_dist:.2f}}}+r_speed{{{reward_speed:.2f}}}<=-10'
                 if self.verbose:
                     print(f'{dist=:.2f}', f'{reward_dist=:.2f}', sep=' ', end=' ')
                     print(f'{speed=:.2f}', f'{reward_speed=:.2f}', sep=' ', end=' ')
                     print(f'{reward=:.2f}')
 
-        done = 0
-        if reward <= -THRESH_DIST_PENALTY:
-            done = 1
-
         return reward, done, done_reason
+
+    def _get_dist(self, thresh_dist):
+        # path
+        Z = -9
+        pts = [
+            np.array([x, y, Z])
+            for x, y in [
+                (0, 0), (128, 0), (128, 127), (0, 127),
+                (0, 0), (128, 0), (128, -128), (0, -128),
+                (0, 0),
+            ]
+        ]
+
+        # position
+        quad_pt = np.array(
+            list(
+                (
+                    self.state["position"].x_val,
+                    self.state["position"].y_val,
+                    self.state["position"].z_val,
+                )
+            )
+        )
+
+        i = self.path_seg - 1
+        dist = pnt2line(quad_pt, pts[i], pts[i + 1])[0]
+        if self.path_seg == len(pts) and dist <= thresh_dist:
+            if self.verbose:
+                print('reached destination', end=' ')
+
+            return dist, True
+
+        next_path_seg = i + 1
+        next_dist = pnt2line(quad_pt, pts[next_path_seg], pts[next_path_seg + 1])[0]
+        if next_dist <= thresh_dist:
+            if self.verbose:
+                print('advancing', end=' ')
+
+            self.path_seg += 1
+            dist = next_dist
+
+        if self.verbose:
+            print(f'{self.path_seg=}/{len(pts)}', end=' ')
+
+            '''
+            def format_float_list(list_):
+                return '[{:.2f},{:.2f},{:.2f}]'.format(*list_)
+
+            def format_int_list(list_):
+                return '[{},{},{}]'.format(*list_)
+
+            dist_pt = pts[self.path_seg - 1]
+            print(f'quad_pt={format_float_list(quad_pt)}', f'dist_pt={format_int_list(dist_pt)}', sep=' ', end=' ')
+            '''
+
+        return dist, False
 
     def _log(self, reward, done, done_reason, log_obs=False):
         self.actions.append(self.action)
@@ -238,6 +255,8 @@ class AirSimDroneEnv(AirSimEnv):
 
     def reset(self):
         self._setup_flight()
+
+        self.path_seg = 1
 
         # logging
         self.obs = []
