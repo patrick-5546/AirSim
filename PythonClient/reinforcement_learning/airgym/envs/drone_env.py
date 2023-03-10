@@ -74,7 +74,7 @@ class AirSimDroneEnv(AirSimEnv):
         # set position to be slightly closer to the origin than the desired position (first point in path)
         # to account for inertia
         self.drone.moveToPositionAsync(0, 0, -8.3, 5).join()
-        self.drone.moveByVelocityAsync(1.5, 0, 0, LEN_TIMESTEP).join()
+        # self.drone.moveByVelocityAsync(1.5, 0, 0, LEN_TIMESTEP).join()
 
     def transform_obs(self, responses):
         img1d = np.array(responses[0].image_data_float, dtype=np.float)
