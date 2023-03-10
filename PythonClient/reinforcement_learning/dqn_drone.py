@@ -18,6 +18,9 @@ N_EVAL_EPISODES = 1 if TEST_MODE else 5
 EVAL_FREQ = 5 if TEST_MODE else 10_000
 TOTAL_TIMESTEPS = 10 if TEST_MODE else 250_000
 
+LOAD_MODEL = True
+LOAD_START_TIME = "2023-03-07_18-34-52"
+
 
 # Create a DummyVecEnv for main airsim gym env
 env = DummyVecEnv(
@@ -38,16 +41,27 @@ env = DummyVecEnv(
 # Wrap env as VecTransposeImage to allow SB to handle frame observations
 env = VecTransposeImage(env)
 
-# Initialize RL algorithm type and parameters
-model = DQN(
-    "CnnPolicy",
-    env,
-    buffer_size=200_000,
-    learning_starts=10_000,
-    verbose=MODEL_VERBOSE,
-    device="cuda",
-    tensorboard_log="./drone_out/tb_logs/",
-)
+if not LOAD_MODEL:
+    # Initialize RL algorithm type and parameters
+    model = DQN(
+        "CnnPolicy",
+        env,
+        buffer_size=200_000,
+        learning_starts=10_000,
+        verbose=MODEL_VERBOSE,
+        device="cuda",
+        tensorboard_log="./drone_out/tb_logs/",
+    )
+else:
+    print("loading best model with start time", LOAD_START_TIME)
+    model = DQN.load("./drone_out/eval/" + LOAD_START_TIME + "/best_model")
+    model.learning_starts = 0
+
+    # show the save hyperparameters
+    print("loaded:", "gamma =", model.gamma, "num_timesteps =", model.num_timesteps)
+
+    # as the environment is not serializable, we need to set a new instance of the environment
+    model.set_env(env)
 
 # Create an evaluation callback with the same env, called every 10000 iterations
 callbacks = []
