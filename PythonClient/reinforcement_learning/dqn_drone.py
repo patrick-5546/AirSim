@@ -1,3 +1,4 @@
+import argparse
 import gym
 import setup_path
 import time
@@ -11,17 +12,21 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecTransposeImage
 
 
 START_TIME = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
+LOG_DIR = 'drone_out'
 
-TEST_MODE = False
-MODEL_VERBOSE = 0 if TEST_MODE else 1
-ENV_VERBOSE = 1 if TEST_MODE else 0
-N_EVAL_EPISODES = 1 if TEST_MODE else 5
-EVAL_FREQ = 5 if TEST_MODE else 10_000
-TOTAL_TIMESTEPS = 10 if TEST_MODE else 250_000
 
-LOAD_MODEL = True
-LOAD_START_TIME = "2023-03-07_18-34-52"
+# argparse configuration
+parser = argparse.ArgumentParser()
+parser.add_argument('-t', '--test', action='store_true', help='test mode: small total timesteps and increase verbosity')
+parser.add_argument('-m', '--model', help='path to the model zip file to load; if not specified start from scratch')
+args = parser.parse_args()
 
+# parameters dependent on test mode
+model_verbose = 0 if args.test else 1
+env_verbose = 1 if args.test else 0
+n_eval_episodes = 1 if args.test else 5
+eval_freq = 5 if args.test else 10_000
+total_timesteps = 10 if args.test else 250_000
 
 # Create a DummyVecEnv for main airsim gym env
 env = DummyVecEnv(
@@ -33,7 +38,7 @@ env = DummyVecEnv(
                 step_length=0.25,
                 image_shape=(84, 84, 1),
                 start_time=START_TIME,
-                verbose=ENV_VERBOSE,
+                verbose=env_verbose,
             )
         )
     ]
@@ -42,37 +47,39 @@ env = DummyVecEnv(
 # Wrap env as VecTransposeImage to allow SB to handle frame observations
 env = VecTransposeImage(env)
 
-if not LOAD_MODEL:
+if not args.model:
     # Initialize RL algorithm type and parameters
     model = DQN(
         "CnnPolicy",
         env,
         buffer_size=200_000,
         learning_starts=10_000,
-        verbose=MODEL_VERBOSE,
+        verbose=model_verbose,
         device="cuda",
-        tensorboard_log="./drone_out/tb_logs/",
+        tensorboard_log=f"./{LOG_DIR}/tb_logs/",
     )
 else:
-    print("loading best model with start time", LOAD_START_TIME)
-    model = DQN.load("./drone_out/eval/" + LOAD_START_TIME + "/best_model")
+    print("loading model at the path", args.model)
+    model = DQN.load(args.model)
+
+    # start learning right away
     model.learning_starts = 0
 
-    # show the save hyperparameters
+    # print the saved hyperparameters
     print("loaded:", "gamma =", model.gamma, "num_timesteps =", model.num_timesteps)
 
     # as the environment is not serializable, we need to set a new instance of the environment
     model.set_env(env)
 
-# Create an evaluation callback with the same env, called every 10000 iterations
+# Create an evaluation callback with the same env
 callbacks = []
 eval_callback = EvalCallback(
     env,
     callback_on_new_best=None,
-    n_eval_episodes=N_EVAL_EPISODES,
-    best_model_save_path="./drone_out/eval/" + START_TIME,
-    log_path="./drone_out/eval/" + START_TIME,
-    eval_freq=EVAL_FREQ,
+    n_eval_episodes=n_eval_episodes,
+    best_model_save_path=f"./{LOG_DIR}/eval/{START_TIME}",
+    log_path=f"./{LOG_DIR}/eval/{START_TIME}",
+    eval_freq=eval_freq,
 )
 callbacks.append(eval_callback)
 
@@ -82,10 +89,10 @@ kwargs["progress_bar"] = True
 
 # Train for a certain number of timesteps
 model.learn(
-    total_timesteps=TOTAL_TIMESTEPS,
-    tb_log_name="dqn_airsim_drone_run_" + START_TIME,
+    total_timesteps=total_timesteps,
+    tb_log_name=f"dqn_airsim_drone_run_{START_TIME}",
     **kwargs
 )
 
 # Save policy weights
-model.save("./drone_out/model/dqn_airsim_drone_policy_" + START_TIME)
+model.save(f"./{LOG_DIR}/model/dqn_airsim_drone_policy_{START_TIME}")
