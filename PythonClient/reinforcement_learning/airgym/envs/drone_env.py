@@ -11,8 +11,10 @@ import gym
 from gym import spaces
 from airgym.envs.airsim_env import AirSimEnv
 
+
 LEN_TIMESTEP = 2
 # logging
+START_TIME = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
 LOG_DIR = os.path.join('drone_out', 'env_logs')
 OBS_DIR = os.path.join(LOG_DIR, 'obs')
 EPISODE_COL_WIDTH = 7
@@ -21,7 +23,8 @@ DONE_REASON_COL_WIDTH = 35
 
 
 class AirSimDroneEnv(AirSimEnv):
-    def __init__(self, ip_address, step_length, image_shape, start_time, verbose):
+    def __init__(self, ip_address='127.0.0.1', step_length=0.25, image_shape=(84, 84, 1),
+                 start_time=START_TIME, verbose=0):
         super().__init__(image_shape)
         self.step_length = step_length
         self.image_shape = image_shape
@@ -187,16 +190,14 @@ class AirSimDroneEnv(AirSimEnv):
         i = self.path_seg - 1
         dist = pnt2line(quad_pt, pts[i], pts[i + 1])[0]
         if self.path_seg == len(pts) and dist <= thresh_dist:
-            if self.verbose:
-                print('reached destination', end=' ')
+            print('reached destination')
 
             return dist, True
 
         next_path_seg = i + 1
         next_dist = pnt2line(quad_pt, pts[next_path_seg], pts[next_path_seg + 1])[0]
         if next_dist <= thresh_dist:
-            if self.verbose:
-                print('advancing', end=' ')
+            print('advancing to next line segment')
 
             self.path_seg += 1
             dist = next_dist
