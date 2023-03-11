@@ -84,7 +84,10 @@ def main():
             )
     else:
         print("loading", args.algorithm, "model from", args.load)
-        model = DQN.load(args.load)
+        if args.algorithm == RLAlgorithm.DQN:
+            model = DQN.load(args.load)
+        elif args.algorithm == RLAlgorithm.PPO:
+            model = PPO.load(args.load)
 
         # start learning right away
         model.learning_starts = 0
