@@ -202,7 +202,7 @@ class AirSimDroneEnv(AirSimEnv):
             dist = next_dist
 
         if self.verbose:
-            print(f'{self.path_seg=}/{len(pts)}', end=' ')
+            print(f'path_seg={self.path_seg}/{len(pts)}', end=' ')
 
             '''
             def format_float_list(list_):
