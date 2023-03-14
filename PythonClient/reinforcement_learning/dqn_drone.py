@@ -26,11 +26,11 @@ class RLAlgorithm(Enum):
 
 def main():
     # argparse configuration
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-a", "--algorithm", choices=RLAlgorithm, type=RLAlgorithm, default=RLAlgorithm.DQN,
-                        help="RL algorithm to use, default DQN")
-    parser.add_argument("-l", "--load",
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("-l", "--load", default=argparse.SUPPRESS,
                         help="path to the model zip file to load; if not specified start from scratch")
+    parser.add_argument("-a", "--algorithm", choices=RLAlgorithm, type=RLAlgorithm, default=RLAlgorithm.DQN,
+                        help="RL algorithm to use")
     parser.add_argument("-t", "--test", action="store_true",
                         help="test mode: small total timesteps and increase verbosity")
     args = parser.parse_args()
