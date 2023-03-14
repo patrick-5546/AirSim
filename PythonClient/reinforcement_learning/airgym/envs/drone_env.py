@@ -124,10 +124,10 @@ class AirSimDroneEnv(AirSimEnv):
 
     def _compute_reward(self):
         THRESH_DIST = 4
-        # graph of distance and speed reward functions: https://www.desmos.com/calculator/nbmbsktod2
+        # graph of distance and speed reward functions: https://www.desmos.com/calculator/lwjbfuxxeg
         # reward function constants
         # x intercept of distance function should be approximately half THRESH_DIST
-        DIST_A, DIST_B, DIST_C = 1, 0.2, 0.5
+        DIST_A, DIST_B, DIST_C = 1, 0.3, 0.5
         SPEED_A, SPEED_B = 0.5, 0.5
 
         if self.state["collision"]:
@@ -187,6 +187,7 @@ class AirSimDroneEnv(AirSimEnv):
             )
         )
 
+        # distance to current path segment
         i = self.path_seg - 1
         dist = pnt2line(quad_pt, pts[i], pts[i + 1])[0]
         if self.path_seg == len(pts) and dist <= thresh_dist:
@@ -194,6 +195,7 @@ class AirSimDroneEnv(AirSimEnv):
 
             return dist, True
 
+        # switch to next segment if close enough
         next_path_seg = i + 1
         next_dist = pnt2line(quad_pt, pts[next_path_seg], pts[next_path_seg + 1])[0]
         if next_dist <= thresh_dist:
