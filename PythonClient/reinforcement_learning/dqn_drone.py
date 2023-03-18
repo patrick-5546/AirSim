@@ -24,13 +24,24 @@ class RLAlgorithm(Enum):
         return self.value
 
 
+class Path(Enum):
+    """Definitions are in the drone_env.py Path class."""
+    NH_0 = "nh_0"
+    LM_0 = "lm_0"
+
+    def __str__(self):
+        return self.value
+
+
 def main():
     # argparse configuration
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("-l", "--load", default=argparse.SUPPRESS,
-                        help="path to the model zip file to load; if not specified start from scratch")
-    parser.add_argument("-a", "--algorithm", choices=RLAlgorithm, type=RLAlgorithm, default=RLAlgorithm.DQN,
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-a", "--algorithm", choices=RLAlgorithm, type=RLAlgorithm,
                         help="RL algorithm to use")
+    parser.add_argument("-p", "--path", choices=Path, type=Path,
+                        help="Path to use")
+    parser.add_argument("-l", "--load",
+                        help="path to the model zip file to load; if not specified start from scratch")
     parser.add_argument("-t", "--test", action="store_true",
                         help="test mode: small total timesteps and increase verbosity")
     args = parser.parse_args()
@@ -53,6 +64,7 @@ def main():
                     image_shape=(84, 84, 1),
                     start_time=START_TIME,
                     verbose=env_verbose,
+                    target_path=str(args.path).upper(),
                 )
             )
         ]

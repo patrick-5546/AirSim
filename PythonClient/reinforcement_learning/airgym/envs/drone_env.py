@@ -13,6 +13,7 @@ from airgym.envs.airsim_env import AirSimEnv
 
 
 LEN_TIMESTEP = 2
+
 # logging
 START_TIME = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
 LOG_DIR = os.path.join('drone_out', 'env_logs')
@@ -22,12 +23,60 @@ REWARD_COL_WIDTH = 7
 DONE_REASON_COL_WIDTH = 35
 
 
+class Path():
+    """How to define a path
+
+    1. Select points in path
+        1. Check points in path by uncommenting block in `_setup_flight()`
+    2. Select start position, (x, y, z, speed), where `speed` is the navigation speed to the starting position
+        1. Run dqn_drone.py in test mode so that the position, path, and distance to path is printed
+        2. Finetune (x, y, z) such that distance is minimized (<1)
+            1. Because of momentum, the greater `speed` is, the further from (x, y, z) you will be
+    """
+    # neighborhood paths
+    NH_0_START_POS = (0, 0, -8.3, 5)
+    NH_0 = [
+        np.array([x, y, -9])
+        for x, y in [
+            (0, 0), (128, 0), (128, 127), (0, 127),
+            (0, 0), (128, 0), (128, -128), (0, -128),
+            (0, 0),
+        ]
+    ]
+    # landscape mountain paths
+    LM_0_START_POS = (0, -24, -15.5, 10)
+    LM_0 = [
+        np.array([x, y, z])
+        for x, y, z in [
+            (-0.55265, -31.9786, -19.0225),
+            (48.59735, -63.3286, -60.07256),
+            (193.5974, -55.0786, -46.32256),
+            (369.2474, 35.32137, -62.5725),
+            (541.3474, 143.6714, -32.07256),
+        ]
+    ]
+
+    def __init__(self, name):
+        self.name = name
+
+        if name == 'NH_0':
+            self.start_pos = Path.NH_0_START_POS
+            self.path = Path.NH_0
+        elif name == 'LM_0':
+            self.start_pos = Path.LM_0_START_POS
+            self.path = Path.LM_0
+        else:
+            raise NameError(f'Path {name} not found')
+
+
 class AirSimDroneEnv(AirSimEnv):
-    def __init__(self, ip_address='127.0.0.1', step_length=0.25, image_shape=(84, 84, 1),
-                 start_time=START_TIME, verbose=0):
+    def __init__(self, ip_address, step_length, image_shape, target_path, start_time, verbose):
         super().__init__(image_shape)
         self.step_length = step_length
         self.image_shape = image_shape
+
+        print(f'Setting target path to {target_path}')
+        self.target_path = Path(target_path)
 
         self.state = {
             "position": np.zeros(3),
@@ -75,11 +124,16 @@ class AirSimDroneEnv(AirSimEnv):
         self.drone.enableApiControl(True)
         self.drone.armDisarm(True)
 
-        # Set home position and velocity
-        # set position to be slightly closer to the origin than the desired position (first point in path)
-        # to account for inertia
-        self.drone.moveToPositionAsync(0, 0, -8.3, 5).join()
+        self.drone.moveToPositionAsync(*self.target_path.start_pos).join()
         self.drone.moveByVelocityAsync(0, 0, 0, LEN_TIMESTEP).join()
+
+        '''
+        # check points in path
+        for pt in self.target_path.path:
+            print(f'Navigating to {pt}')
+            self.drone.moveToPositionAsync(*pt, self.target_path.start_pos[3]).join()
+            self.drone.moveByVelocityAsync(0, 0, 0, LEN_TIMESTEP).join()
+        '''
 
     def transform_obs(self, responses):
         img1d = np.array(responses[0].image_data_float, dtype=np.float)
@@ -164,17 +218,6 @@ class AirSimDroneEnv(AirSimEnv):
         return reward, done, done_reason
 
     def _get_dist(self, thresh_dist):
-        # path
-        Z = -9
-        pts = [
-            np.array([x, y, Z])
-            for x, y in [
-                (0, 0), (128, 0), (128, 127), (0, 127),
-                (0, 0), (128, 0), (128, -128), (0, -128),
-                (0, 0),
-            ]
-        ]
-
         # position
         quad_pt = np.array(
             list(
@@ -188,15 +231,15 @@ class AirSimDroneEnv(AirSimEnv):
 
         # distance to current path segment
         i = self.path_seg - 1
-        dist = pnt2line(quad_pt, pts[i], pts[i + 1])[0]
-        if self.path_seg == len(pts) and dist <= thresh_dist:
+        dist = pnt2line(quad_pt, self.target_path.path[i], self.target_path.path[i + 1])[0]
+        if self.path_seg == len(self.target_path.path) and dist <= thresh_dist:
             print('reached destination')
 
             return dist, True
 
         # switch to next segment if close enough
         next_path_seg = i + 1
-        next_dist = pnt2line(quad_pt, pts[next_path_seg], pts[next_path_seg + 1])[0]
+        next_dist = pnt2line(quad_pt, self.target_path.path[next_path_seg], self.target_path.path[next_path_seg + 1])[0]
         if next_dist <= thresh_dist:
             print('advancing to next line segment')
 
@@ -204,18 +247,16 @@ class AirSimDroneEnv(AirSimEnv):
             dist = next_dist
 
         if self.verbose:
-            print(f'path_seg={self.path_seg}/{len(pts)}', end=' ')
+            print(f'path_seg={self.path_seg}/{len(self.target_path.path)}', end=' ')
 
-            '''
             def format_float_list(list_):
                 return '[{:.2f},{:.2f},{:.2f}]'.format(*list_)
 
             def format_int_list(list_):
                 return '[{},{},{}]'.format(*list_)
 
-            dist_pt = pts[self.path_seg - 1]
+            dist_pt = self.target_path.path[self.path_seg - 1]
             print(f'quad_pt={format_float_list(quad_pt)}', f'dist_pt={format_int_list(dist_pt)}', sep=' ', end=' ')
-            '''
 
         return dist, False
 
