@@ -118,12 +118,12 @@ def main():
     # Train for a certain number of timesteps
     model.learn(
         total_timesteps=total_timesteps,
-        tb_log_name=f"dqn_airsim_drone_run_{START_TIME}",
+        tb_log_name=f"{args.algorithm}_airsim_drone_run_{START_TIME}",
         **kwargs
     )
 
     # Save policy weights
-    model.save(f"./{LOG_DIR}/model/dqn_airsim_drone_policy_{START_TIME}")
+    model.save(f"./{LOG_DIR}/model/{args.algorithm}_airsim_drone_policy_{START_TIME}")
 
 
 if __name__ == "__main__":
