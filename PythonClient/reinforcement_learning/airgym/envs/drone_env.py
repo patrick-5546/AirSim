@@ -127,8 +127,8 @@ class AirSimDroneEnv(AirSimEnv):
         # graph of distance and speed reward functions: https://www.desmos.com/calculator/lwjbfuxxeg
         # reward function constants
         # x intercept of distance function should be approximately half THRESH_DIST
-        DIST_A, DIST_B, DIST_C = 1, 0.3, 0.5
-        SPEED_A, SPEED_B = 0.5, 0.5
+        DIST_DECAY = 0.3
+        SPEED_DECAY = 0.7
 
         if self.state["collision"]:
             reward = -100
@@ -145,14 +145,13 @@ class AirSimDroneEnv(AirSimEnv):
                 done = 1
                 done_reason = f'dist{{{dist:.2f}}}>THRESH_DIST{{{THRESH_DIST:.2f}}}'
             else:
-                reward_dist = DIST_A * math.exp(-DIST_B * dist) - DIST_C
+                reward_dist = math.exp(-DIST_DECAY * dist) - 0.5
                 speed = np.linalg.norm([
                     self.state["velocity"].x_val,
                     self.state["velocity"].y_val,
                     self.state["velocity"].z_val,
                     ])
-                reward_speed = SPEED_A * speed - SPEED_B if SPEED_A * speed - SPEED_B < DIST_A - DIST_C \
-                    else DIST_A - DIST_C
+                reward_speed = -math.exp(-SPEED_DECAY * speed) + 0.5
 
                 reward = reward_dist + reward_speed
                 done = 0
@@ -292,6 +291,7 @@ class AirSimDroneEnv(AirSimEnv):
             self.action = '+0'
 
         return quad_offset
+
 
 # From https://stackoverflow.com/a/51240898
 def dot(v,w):
