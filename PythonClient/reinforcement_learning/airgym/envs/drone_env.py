@@ -124,7 +124,7 @@ class AirSimDroneEnv(AirSimEnv):
 
     def _compute_reward(self):
         THRESH_DIST = 4
-        # graph of distance and speed reward functions: https://www.desmos.com/calculator/lwjbfuxxeg
+        # graph of distance and speed reward functions: https://www.desmos.com/calculator/j4phheyncf
         # reward function constants
         # x intercept of distance function should be approximately half THRESH_DIST
         DIST_DECAY = 0.3
