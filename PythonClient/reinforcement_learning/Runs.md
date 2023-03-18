@@ -11,4 +11,4 @@
 | `2023-03-10_16-53-35` | 2      | Update print statements       |                               | Fix distance function        | Going backwards | `-a ppo -l drone_out/eval/2023-03-09_17-19-22/best_model.zip` |
 | `2023-03-11_15-37-42` | 2      | Update print statements       | Update DIST_B from 0.2 to 0.3 | Fix distance function        |                 | `-a ppo`                                                      |
 | `2023-03-13_16-38-19` | 2      | Update print statements       | Update DIST_B from 0.2 to 0.3 | Restart visualizer           |                 | `-a ppo -l drone_out/eval/2023-03-11_15-37-42/best_model.zip` |
-| `2023-03-14_13-51-59` | 1      | Update DIST_B from 0.2 to 0.3 |                               | Loaded at 30k timesteps      |                 | `-a ppo -l drone_out/eval/2023-03-11_15-37-42/best_model.zip` |
+| `2023-03-14_13-51-59` | 1      | Update DIST_B from 0.2 to 0.3 |                               | Loaded at 30k timesteps      |                 | `-a ppo -l drone_out/eval/2023-03-13_16-38-19/best_model.zip` |
