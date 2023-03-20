@@ -73,6 +73,11 @@ class Path():
         else:
             raise NameError(f'Path {name} not found')
 
+        assert len(self.path) >= 2, f'Path {name} length {len(self.path)} < 2; path={self.path_str()}'
+
+    def path_str(self):
+        return str([f"({x:.0f}, {y:.0f}, {z:.0f})" for x, y, z in self.path])
+
 
 class AirSimDroneEnv(AirSimEnv):
     def __init__(self, ip_address, step_length, image_shape, target_path, start_time, verbose):
@@ -81,7 +86,7 @@ class AirSimDroneEnv(AirSimEnv):
         self.image_shape = image_shape
 
         self.target_path = Path(target_path)
-        print(f'Setting target path to {target_path}: {[f"({x:.0f}, {y:.0f}, {z:.0f})" for x, y, z in self.target_path.path]}')
+        print(f'Setting target path to {target_path}: {self.target_path.path_str()}')
 
         self.state = {
             "position": np.zeros(3),
@@ -234,22 +239,27 @@ class AirSimDroneEnv(AirSimEnv):
             )
         )
 
-        # distance to current path segment
         i = self.path_seg - 1
+        # distance to current path segment
         dist = pnt2line(quad_pt, self.target_path.path[i], self.target_path.path[i + 1])[0]
-        if self.path_seg == len(self.target_path.path) and dist <= thresh_dist:
-            print('reached destination')
+        next_path_seg = self.path_seg + 1
+        j = next_path_seg - 1
 
-            return dist, True
+        if next_path_seg == len(self.target_path.path):
+            # reached destination if close enough
+            next_dist = np.linalg.norm(self.target_path.path[j] - quad_pt)
+            if next_dist <= thresh_dist:
+                print('reached destination')
 
-        # switch to next segment if close enough
-        next_path_seg = i + 1
-        next_dist = pnt2line(quad_pt, self.target_path.path[next_path_seg], self.target_path.path[next_path_seg + 1])[0]
-        if next_dist <= thresh_dist:
-            print('advancing to next line segment')
+                return next_dist, True
+        else:
+            # advance to next line segment if close enough
+            next_dist = pnt2line(quad_pt, self.target_path.path[j], self.target_path.path[j + 1])[0]
+            if next_dist <= thresh_dist:
+                print('advancing to next line segment')
 
-            self.path_seg += 1
-            dist = next_dist
+                self.path_seg = next_path_seg
+                dist = next_dist
 
         if self.verbose:
             print(f'path_seg={self.path_seg}/{len(self.target_path.path)}', end=' ')
@@ -262,6 +272,10 @@ class AirSimDroneEnv(AirSimEnv):
 
             dist_pt = self.target_path.path[self.path_seg - 1]
             print(f'quad_pt={format_float_list(quad_pt)}', f'dist_pt={format_int_list(dist_pt)}', sep=' ', end=' ')
+
+            if self.path_seg != next_path_seg:
+                next_pt = self.target_path.path[j]
+                print(f'next_pt={format_int_list(next_pt)}', f'{next_dist=:.2f}', sep=' ', end = ' ')
 
         return dist, False
 
