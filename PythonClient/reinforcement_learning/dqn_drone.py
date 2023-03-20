@@ -27,6 +27,7 @@ class RLAlgorithm(Enum):
 class Path(Enum):
     """Definitions are in the drone_env.py Path class."""
     NH_0 = "nh_0"
+    NH_1 = "nh_1"
     LM_0 = "lm_0"
 
     def __str__(self):

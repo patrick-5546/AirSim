@@ -43,6 +43,8 @@ class Path():
             (0, 0),
         ]
     ]
+    NH_1_START_POS = NH_0_START_POS
+    NH_1 = NH_0[:2]
     # landscape mountain paths
     LM_0_START_POS = (0, -24, -15.5, 10)
     LM_0 = [
@@ -62,6 +64,9 @@ class Path():
         if name == 'NH_0':
             self.start_pos = Path.NH_0_START_POS
             self.path = Path.NH_0
+        elif name == 'NH_1':
+            self.start_pos = Path.NH_1_START_POS
+            self.path = Path.NH_1
         elif name == 'LM_0':
             self.start_pos = Path.LM_0_START_POS
             self.path = Path.LM_0
