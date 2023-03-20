@@ -80,8 +80,8 @@ class AirSimDroneEnv(AirSimEnv):
         self.step_length = step_length
         self.image_shape = image_shape
 
-        print(f'Setting target path to {target_path}')
         self.target_path = Path(target_path)
+        print(f'Setting target path to {target_path}: {[f"({x:.0f}, {y:.0f}, {z:.0f})" for x, y, z in self.target_path.path]}')
 
         self.state = {
             "position": np.zeros(3),
