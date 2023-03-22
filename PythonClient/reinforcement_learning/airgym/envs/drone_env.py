@@ -6,6 +6,7 @@ import os
 import shutil
 import time
 from argparse import ArgumentParser
+from enum import Enum
 
 import gym
 from gym import spaces
@@ -21,6 +22,15 @@ OBS_DIR = os.path.join(LOG_DIR, 'obs')
 EPISODE_COL_WIDTH = 7
 REWARD_COL_WIDTH = 7
 DONE_REASON_COL_WIDTH = 35
+
+
+class PathSelection(Enum):
+    NH_0 = "nh_0"
+    NH_1 = "nh_1"
+    LM_0 = "lm_0"
+
+    def __str__(self):
+        return self.value
 
 
 class Path():
@@ -58,35 +68,45 @@ class Path():
         ]
     ]
 
-    def __init__(self, name):
-        self.name = name
+    def __init__(self, path):
+        self.name = str(path).upper()
 
-        if name == 'NH_0':
+        if path == PathSelection.NH_0:
             self.start_pos = Path.NH_0_START_POS
             self.path = Path.NH_0
-        elif name == 'NH_1':
+        elif path == PathSelection.NH_1:
             self.start_pos = Path.NH_1_START_POS
             self.path = Path.NH_1
-        elif name == 'LM_0':
+        elif path == PathSelection.LM_0:
             self.start_pos = Path.LM_0_START_POS
             self.path = Path.LM_0
         else:
-            raise NameError(f'Path {name} not found')
+            raise NameError(f'Path {self.name} not found')
 
-        assert len(self.path) >= 2, f'Path {name} length {len(self.path)} < 2; path={self.path_str()}'
+        assert len(self.path) >= 2, f'Path {self.name} length {len(self.path)} < 2; path={self.path_str()}'
 
     def path_str(self):
         return str([f"({x:.0f}, {y:.0f}, {z:.0f})" for x, y, z in self.path])
 
 
+class DistMode(Enum):
+    CENTER = "center"
+    DEST = "dest"
+
+    def __str__(self):
+        return self.value
+
+
 class AirSimDroneEnv(AirSimEnv):
-    def __init__(self, ip_address, step_length, image_shape, target_path, start_time, verbose):
+    def __init__(self, ip_address, step_length, image_shape, target_path, dist_mode, start_time, verbose):
         super().__init__(image_shape)
         self.step_length = step_length
         self.image_shape = image_shape
 
         self.target_path = Path(target_path)
         print(f'Setting target path to {target_path}: {self.target_path.path_str()}')
+        self.dist_mode = dist_mode
+        self.last_dist = None
 
         self.state = {
             "position": np.zeros(3),
@@ -174,6 +194,19 @@ class AirSimDroneEnv(AirSimEnv):
         collision = self.drone.simGetCollisionInfo().has_collided
         self.state["collision"] = collision
 
+        # initialize self.last_dist
+        if not self.last_dist:
+            quad_pt = np.array(
+                list(
+                    (
+                        self.state["position"].x_val,
+                        self.state["position"].y_val,
+                        self.state["position"].z_val,
+                    )
+                )
+            )
+            self.last_dist = np.linalg.norm(self.target_path.path[1] - quad_pt)
+
         return image
 
     def _do_action(self, action):
@@ -188,10 +221,10 @@ class AirSimDroneEnv(AirSimEnv):
 
     def _compute_reward(self):
         THRESH_DIST = 4
-        # graph of distance and speed reward functions: https://www.desmos.com/calculator/j4phheyncf
+        # graph of distance and speed reward functions: https://www.desmos.com/calculator/y8hkqxui3r
         # reward function constants
         # x intercept of distance function should be approximately half THRESH_DIST
-        DIST_DECAY = 0.3
+        DIST_CENTER_DECAY = 0.3
         SPEED_DECAY = 0.7
 
         if self.state["collision"]:
@@ -199,31 +232,44 @@ class AirSimDroneEnv(AirSimEnv):
             done = 1
             done_reason = 'collision'
         else:
-            dist, reached_destination = self._get_dist(THRESH_DIST)
+            center_dist, dist, reached_destination = self._get_dist(THRESH_DIST)
             if reached_destination:
                 reward = 1000
                 done = 1
                 done_reason = 'reached destination'
-            elif dist > THRESH_DIST:
+            elif center_dist > THRESH_DIST:
                 reward = -10
                 done = 1
-                done_reason = f'dist{{{dist:.2f}}}>THRESH_DIST{{{THRESH_DIST:.2f}}}'
+                done_reason = f'center_dist{{{center_dist:.2f}}}>THRESH_DIST{{{THRESH_DIST:.2f}}}'
             else:
-                reward_dist = math.exp(-DIST_DECAY * dist) - 0.5
-                speed = np.linalg.norm([
-                    self.state["velocity"].x_val,
-                    self.state["velocity"].y_val,
-                    self.state["velocity"].z_val,
-                    ])
-                reward_speed = -math.exp(-SPEED_DECAY * speed) + 0.5
-
-                reward = reward_dist + reward_speed
-                done = 0
-                done_reason = f'r_dist{{{reward_dist:.2f}}}+r_speed{{{reward_speed:.2f}}}<=-10'
+                # distance component of reward
+                if self.dist_mode == DistMode.CENTER:
+                    reward = math.exp(-DIST_CENTER_DECAY * dist) - 0.5
+                else:
+                    # penalize (reward < 0) when not making any progress (last_dist == dist)
+                    reward = self.last_dist - dist - 0.5
                 if self.verbose:
-                    print(f'{dist=:.2f}', f'{reward_dist=:.2f}', sep=' ', end=' ')
-                    print(f'{speed=:.2f}', f'{reward_speed=:.2f}', sep=' ', end=' ')
+                    print(f'{dist=:.2f}', f'last_dist={self.last_dist:.2f}', f'reward_dist={reward:.2f}', sep=' ', end=' ')
+                self.last_dist = dist
+
+                # speed component of reward
+                if self.dist_mode == DistMode.CENTER:
+                    speed = np.linalg.norm([
+                        self.state["velocity"].x_val,
+                        self.state["velocity"].y_val,
+                        self.state["velocity"].z_val,
+                        ])
+                    reward_speed = -math.exp(-SPEED_DECAY * speed) + 0.5
+                    if self.verbose:
+                        print(f'{speed=:.2f}', f'{reward_speed=:.2f}', sep=' ', end=' ')
+
+                    reward += reward_speed
+
+                if self.verbose:
                     print(f'{reward=:.2f}')
+
+                done = 0
+                done_reason = ''
 
         return reward, done, done_reason
 
@@ -239,27 +285,22 @@ class AirSimDroneEnv(AirSimEnv):
             )
         )
 
-        i = self.path_seg - 1
-        # distance to current path segment
-        dist = pnt2line(quad_pt, self.target_path.path[i], self.target_path.path[i + 1])[0]
-        next_path_seg = self.path_seg + 1
-        j = next_path_seg - 1
+        dest_path_seg = self.path_seg + 1
+        dest_dist = np.linalg.norm(self.target_path.path[dest_path_seg - 1] - quad_pt)
 
-        if next_path_seg == len(self.target_path.path):
-            # reached destination if close enough
-            next_dist = np.linalg.norm(self.target_path.path[j] - quad_pt)
-            if next_dist <= thresh_dist:
-                print('reached destination')
+        # check if reached destination
+        if dest_path_seg == len(self.target_path.path) and dest_dist <= thresh_dist:
+            print('reached destination')
+            return None, dest_dist, True
 
-                return next_dist, True
+        center_dist = pnt2line(quad_pt, self.target_path.path[self.path_seg - 1], self.target_path.path[dest_path_seg - 1])[0]
+
+        # get distance specified by self.dist_mode
+        # may advance to the next line segment
+        if self.dist_mode == DistMode.CENTER:
+            dist, _ = self._get_center_dist(thresh_dist, center_dist, quad_pt)
         else:
-            # advance to next line segment if close enough
-            next_dist = pnt2line(quad_pt, self.target_path.path[j], self.target_path.path[j + 1])[0]
-            if next_dist <= thresh_dist:
-                print('advancing to next line segment')
-
-                self.path_seg = next_path_seg
-                dist = next_dist
+            dist, _ = self._get_dest_dist(thresh_dist, dest_dist, quad_pt)
 
         if self.verbose:
             print(f'path_seg={self.path_seg}/{len(self.target_path.path)}', end=' ')
@@ -270,14 +311,38 @@ class AirSimDroneEnv(AirSimEnv):
             def format_int_list(list_):
                 return '[{},{},{}]'.format(*list_)
 
-            dist_pt = self.target_path.path[self.path_seg - 1]
-            print(f'quad_pt={format_float_list(quad_pt)}', f'dist_pt={format_int_list(dist_pt)}', sep=' ', end=' ')
+            dest_path_seg = self.path_seg + 1
+            dest_pt = self.target_path.path[dest_path_seg - 1]
+            print(f'quad_pt={format_float_list(quad_pt)}', f'dest_pt={format_int_list(dest_pt)}', sep=' ', end=' ')
 
-            if self.path_seg != next_path_seg:
-                next_pt = self.target_path.path[j]
-                print(f'next_pt={format_int_list(next_pt)}', f'{next_dist=:.2f}', sep=' ', end = ' ')
+        return center_dist, dist, False
 
-        return dist, False
+    def _get_center_dist(self, thresh_dist, center_dist, quad_pt):
+        next_path_seg = self.path_seg + 1
+        if next_path_seg < len(self.target_path.path):
+            next_dest_path_seg = next_path_seg + 1
+            next_center_dist = pnt2line(quad_pt, self.target_path.path[next_path_seg - 1], self.target_path.path[next_dest_path_seg - 1])[0]
+
+            # advances when next line segment is close enough
+            if next_center_dist <= thresh_dist:
+                print('advancing to next line segment')
+                self.path_seg = next_path_seg
+                return next_center_dist, True
+
+        return center_dist, False
+
+    def _get_dest_dist(self, thresh_dist, dest_dist, quad_pt):
+        # advances when destination is close enough
+        if dest_dist <= thresh_dist:
+            print('advancing to next line segment')
+            self.path_seg += 1
+
+            dest_path_seg = self.path_seg + 1
+            next_dest_dist = np.linalg.norm(self.target_path.path[dest_path_seg - 1] - quad_pt)
+
+            return next_dest_dist, True
+
+        return dest_dist, False
 
     def _log(self, reward, done, done_reason, log_obs=False):
         self.actions.append(self.action)

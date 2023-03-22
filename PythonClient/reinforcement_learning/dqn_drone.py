@@ -4,6 +4,7 @@ import setup_path
 import time
 
 import airgym
+from airgym.envs.drone_env import PathSelection, DistMode
 
 from enum import Enum
 from stable_baselines3 import DQN, PPO
@@ -23,26 +24,13 @@ class RLAlgorithm(Enum):
     def __str__(self):
         return self.value
 
-
-class Path(Enum):
-    """Definitions are in the drone_env.py Path class."""
-    NH_0 = "nh_0"
-    NH_1 = "nh_1"
-    LM_0 = "lm_0"
-
-    def __str__(self):
-        return self.value
-
-
 def main():
     # argparse configuration
     parser = argparse.ArgumentParser()
-    parser.add_argument("-a", "--algorithm", choices=RLAlgorithm, type=RLAlgorithm,
-                        help="RL algorithm to use")
-    parser.add_argument("-p", "--path", choices=Path, type=Path,
-                        help="Path to use")
-    parser.add_argument("-l", "--load",
-                        help="path to the model zip file to load; if not specified start from scratch")
+    parser.add_argument("-a", "--algorithm", choices=RLAlgorithm, type=RLAlgorithm, help="RL algorithm to use")
+    parser.add_argument("-p", "--path", choices=PathSelection, type=PathSelection, help="Path to use")
+    parser.add_argument("-d", "--dist_mode", choices=DistMode, type=DistMode, help="how distance is computed")
+    parser.add_argument("-l", "--load", help="path to the model zip file to load; if not specified start from scratch")
     parser.add_argument("-t", "--test", action="store_true",
                         help="test mode: small total timesteps and increase verbosity")
     args = parser.parse_args()
@@ -65,7 +53,8 @@ def main():
                     image_shape=(84, 84, 1),
                     start_time=START_TIME,
                     verbose=env_verbose,
-                    target_path=str(args.path).upper(),
+                    target_path=args.path,
+                    dist_mode=args.dist_mode,
                 )
             )
         ]
