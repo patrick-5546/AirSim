@@ -194,8 +194,8 @@ class AirSimDroneEnv(AirSimEnv):
         collision = self.drone.simGetCollisionInfo().has_collided
         self.state["collision"] = collision
 
-        # initialize self.last_dist
-        if not self.last_dist:
+        # initialize self.last_dist at the start of an episode
+        if not self.actions:
             quad_pt = np.array(
                 list(
                     (
@@ -232,7 +232,10 @@ class AirSimDroneEnv(AirSimEnv):
             done = 1
             done_reason = 'collision'
         else:
-            center_dist, dist, reached_destination = self._get_dist(THRESH_DIST)
+            center_dist, dist, reached_destination, advanced = self._get_dist(THRESH_DIST)
+            if self.verbose:
+                print(f'{center_dist=:.2f}, {dist=:.2f}', f'last_dist={self.last_dist:.2f}',  sep=' ', end=' ')
+
             if reached_destination:
                 reward = 1000
                 done = 1
@@ -246,10 +249,9 @@ class AirSimDroneEnv(AirSimEnv):
                 if self.dist_mode == DistMode.CENTER:
                     reward = math.exp(-DIST_CENTER_DECAY * dist) - 0.5
                 else:
-                    # penalize (reward < 0) when not making any progress (last_dist == dist)
-                    reward = self.last_dist - dist - 0.5
+                    reward = self.last_dist - dist
                 if self.verbose:
-                    print(f'{dist=:.2f}', f'last_dist={self.last_dist:.2f}', f'reward_dist={reward:.2f}', sep=' ', end=' ')
+                    print(f'reward_dist={reward:.2f}', sep=' ', end=' ')
                 self.last_dist = dist
 
                 # speed component of reward
@@ -264,6 +266,13 @@ class AirSimDroneEnv(AirSimEnv):
                         print(f'{speed=:.2f}', f'{reward_speed=:.2f}', sep=' ', end=' ')
 
                     reward += reward_speed
+
+                # reward if advanced
+                if advanced:
+                    reward_advanced = 100
+                    if self.verbose:
+                        print(f'{reward_advanced=:.2f}', sep=' ', end=' ')
+                    reward += reward_advanced
 
                 if self.verbose:
                     print(f'{reward=:.2f}')
@@ -291,19 +300,23 @@ class AirSimDroneEnv(AirSimEnv):
         # check if reached destination
         if dest_path_seg == len(self.target_path.path) and dest_dist <= thresh_dist:
             print('reached destination')
-            return None, dest_dist, True
+            return None, dest_dist, True, True
 
         center_dist = pnt2line(quad_pt, self.target_path.path[self.path_seg - 1], self.target_path.path[dest_path_seg - 1])[0]
 
         # get distance specified by self.dist_mode
         # may advance to the next line segment
         if self.dist_mode == DistMode.CENTER:
-            dist, _ = self._get_center_dist(thresh_dist, center_dist, quad_pt)
+            dist, advanced = self._get_center_dist(thresh_dist, center_dist, quad_pt)
         else:
-            dist, _ = self._get_dest_dist(thresh_dist, dest_dist, quad_pt)
+            dist, advanced = self._get_dest_dist(thresh_dist, dest_dist, quad_pt)
+
+        # reset self.last_dist if advanced
+        if advanced:
+            self.last_dist = dist
 
         if self.verbose:
-            print(f'path_seg={self.path_seg}/{len(self.target_path.path)}', end=' ')
+            print(f'path_seg={self.path_seg}/{len(self.target_path.path)-1}', end=' ')
 
             def format_float_list(list_):
                 return '[{:.2f},{:.2f},{:.2f}]'.format(*list_)
@@ -315,7 +328,7 @@ class AirSimDroneEnv(AirSimEnv):
             dest_pt = self.target_path.path[dest_path_seg - 1]
             print(f'quad_pt={format_float_list(quad_pt)}', f'dest_pt={format_int_list(dest_pt)}', sep=' ', end=' ')
 
-        return center_dist, dist, False
+        return center_dist, dist, False, advanced
 
     def _get_center_dist(self, thresh_dist, center_dist, quad_pt):
         next_path_seg = self.path_seg + 1
@@ -393,6 +406,16 @@ class AirSimDroneEnv(AirSimEnv):
         return self._get_obs()
 
     def interpret_action(self, action):
+        """
+        # Override model and go straight
+        num_actions = len(self.actions)
+        if num_actions == 4:
+            action = 5
+        else:
+            action = 0
+        print(f"{action=}")
+        """
+
         if action == 0:
             quad_offset = (self.step_length, 0, 0)
             self.action = '+x'
