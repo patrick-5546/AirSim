@@ -31,6 +31,7 @@ def main():
     parser.add_argument("-p", "--path", choices=PathSelection, type=PathSelection, help="Path to use")
     parser.add_argument("-d", "--dist_mode", choices=DistMode, type=DistMode, help="how distance is computed")
     parser.add_argument("-l", "--load", help="path to the model zip file to load; if not specified start from scratch")
+    parser.add_argument("-s", "--spoof", action="store_true", help="gps spoofing: make position data unreliable")
     parser.add_argument("-t", "--test", action="store_true",
                         help="test mode: small total timesteps and increase verbosity")
     args = parser.parse_args()
@@ -55,6 +56,7 @@ def main():
                     verbose=env_verbose,
                     target_path=args.path,
                     dist_mode=args.dist_mode,
+                    gps_spoofing=args.spoof,
                 )
             )
         ]

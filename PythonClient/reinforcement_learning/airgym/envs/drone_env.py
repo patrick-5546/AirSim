@@ -21,6 +21,7 @@ LOG_DIR = os.path.join('drone_out', 'env_logs')
 OBS_DIR = os.path.join(LOG_DIR, 'obs')
 EPISODE_COL_WIDTH = 7
 REWARD_COL_WIDTH = 7
+SPOOF_COL_WIDTH = 19
 DONE_REASON_COL_WIDTH = 35
 
 
@@ -98,7 +99,7 @@ class DistMode(Enum):
 
 
 class AirSimDroneEnv(AirSimEnv):
-    def __init__(self, ip_address, step_length, image_shape, target_path, dist_mode, start_time, verbose):
+    def __init__(self, ip_address, step_length, image_shape, target_path, dist_mode, gps_spoofing, start_time, verbose):
         super().__init__(image_shape)
         self.step_length = step_length
         self.image_shape = image_shape
@@ -107,6 +108,9 @@ class AirSimDroneEnv(AirSimEnv):
         print(f'Setting target path to {target_path}: {self.target_path.path_str()}')
         self.dist_mode = dist_mode
         self.last_dist = None
+
+        self.gps_spoofing = gps_spoofing
+        self.offset = np.zeros(3)
 
         self.state = {
             "position": np.zeros(3),
@@ -141,6 +145,7 @@ class AirSimDroneEnv(AirSimEnv):
                 shutil.rmtree(filepath)
         header = ' | '.join([f'{"Episode" : <{EPISODE_COL_WIDTH}}',
                              f'{"Reward" : <{REWARD_COL_WIDTH}}',
+                             f'{"Position Offset" : <{SPOOF_COL_WIDTH}}',
                              f'{"Done Reason" : <{DONE_REASON_COL_WIDTH}}',
                              "Actions"])
         with open(self.log_path, 'w') as f:
@@ -189,6 +194,11 @@ class AirSimDroneEnv(AirSimEnv):
 
         self.state["prev_position"] = self.state["position"]
         self.state["position"] = self.drone_state.kinematics_estimated.position
+        if self.gps_spoofing:
+            self.offset += np.random.uniform(low=-1, high=1, size=3)
+            self.state["position"].x_val += self.offset[0]
+            self.state["position"].y_val += self.offset[1]
+            self.state["position"].z_val += self.offset[2]
         self.state["velocity"] = self.drone_state.kinematics_estimated.linear_velocity
 
         collision = self.drone.simGetCollisionInfo().has_collided
@@ -318,15 +328,11 @@ class AirSimDroneEnv(AirSimEnv):
         if self.verbose:
             print(f'path_seg={self.path_seg}/{len(self.target_path.path)-1}', end=' ')
 
-            def format_float_list(list_):
-                return '[{:.2f},{:.2f},{:.2f}]'.format(*list_)
-
-            def format_int_list(list_):
-                return '[{},{},{}]'.format(*list_)
-
             dest_path_seg = self.path_seg + 1
             dest_pt = self.target_path.path[dest_path_seg - 1]
-            print(f'quad_pt={format_float_list(quad_pt)}', f'dest_pt={format_int_list(dest_pt)}', sep=' ', end=' ')
+            if self.gps_spoofing:
+                print(f'curr_pt_no_spoof={format_float_list(quad_pt - self.offset)}', sep=' ', end=' ')
+            print(f'curr_pt={format_float_list(quad_pt)}', f'dest_pt={format_int_list(dest_pt)}', sep=' ', end=' ')
 
         return center_dist, dist, False, advanced
 
@@ -376,6 +382,7 @@ class AirSimDroneEnv(AirSimEnv):
             actions = ''.join(f'{a : <3}' for a in self.actions).strip()
             row = ' | '.join([f'{self.episode : <{EPISODE_COL_WIDTH}}',
                               f'{episode_reward : <{REWARD_COL_WIDTH}.2f}',
+                              f'{format_float_list(self.offset) : <{SPOOF_COL_WIDTH}}',
                               f'{done_reason : <{DONE_REASON_COL_WIDTH}}',
                               actions])
             with open(self.log_path, 'a') as f:
@@ -397,6 +404,7 @@ class AirSimDroneEnv(AirSimEnv):
         self._setup_flight()
 
         self.path_seg = 1
+        self.offset = np.zeros(3)
 
         # logging
         self.obs = []
@@ -472,6 +480,14 @@ def add(v,w):
     x,y,z = v
     X,Y,Z = w
     return (x+X, y+Y, z+Z)
+
+
+def format_float_list(list_):
+    return '[{:.2f},{:.2f},{:.2f}]'.format(*list_)
+
+
+def format_int_list(list_):
+    return '[{},{},{}]'.format(*list_)
 
 
 # Given a line with coordinates 'start' and 'end' and the
