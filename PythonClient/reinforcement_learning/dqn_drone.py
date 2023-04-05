@@ -26,7 +26,14 @@ class RLAlgorithm(Enum):
         return self.value
 
 def main():
-    # argparse configuration
+    args = get_args()
+    env = get_env(args)
+    model = get_model(args, env)
+    execute(args, env, model)
+
+
+def get_args():
+    """Argparse configuration."""
     parser = argparse.ArgumentParser()
     parser.add_argument("-a", "--algorithm", choices=RLAlgorithm, type=RLAlgorithm, help="RL algorithm to use")
     parser.add_argument("-p", "--path", choices=PathSelection, type=PathSelection, help="Path to use")
@@ -36,17 +43,10 @@ def main():
     parser.add_argument("-s", "--spoof", action="store_true", help="gps spoofing: make position data unreliable")
     parser.add_argument("-t", "--test", action="store_true",
                         help="test mode: small total timesteps and increase verbosity")
-    args = parser.parse_args()
+    return parser.parse_args()
 
-    # parameters dependent on test mode
-    model_verbose = 0 if args.test else 1
-    env_verbose = 1 if args.test else 0
-    train_n_eval_episodes = 1 if args.test else 5
-    eval_freq = 5 if args.test else 10_000
-    total_timesteps = 10 if args.test else 250_000
-    n_eval_episodes = 10 if args.test else 1000
-
-    # Create a DummyVecEnv for main airsim gym env
+def get_env(args):
+    # create a DummyVecEnv for main airsim gym env
     env = DummyVecEnv(
         [
             lambda: Monitor(
@@ -56,7 +56,7 @@ def main():
                     step_length=0.25,
                     image_shape=(84, 84, 1),
                     start_time=START_TIME,
-                    verbose=env_verbose,
+                    verbose=1 if args.test else 0,
                     target_path=args.path,
                     dist_mode=args.dist_mode,
                     gps_spoofing=args.spoof,
@@ -65,15 +65,20 @@ def main():
         ]
     )
 
-    # Wrap env as VecTransposeImage to allow SB to handle frame observations
+    # wrap env as VecTransposeImage to allow SB to handle frame observations
     env = VecTransposeImage(env)
 
+    return env
+
+
+def get_model(args, env):
+    """Create model or load from file."""
     if not args.load:
         # Initialize RL algorithm type and parameters
         common_kwargs = {
             "policy": "CnnPolicy",
             "env": env,
-            "verbose": model_verbose,
+            "verbose": 0 if args.test else 1,
             "device": "cuda",
             "tensorboard_log": f"./{LOG_DIR}/tb_logs/",
         }
@@ -102,6 +107,11 @@ def main():
         # as the environment is not serializable, we need to set a new instance of the environment
         model.set_env(env)
 
+    return model
+
+
+def execute(args, env, model):
+    """Train or evaluate model."""
     if not args.evaluate:
         # start learning right away
         model.learning_starts = 0
@@ -111,10 +121,10 @@ def main():
         eval_callback = EvalCallback(
             env,
             callback_on_new_best=None,
-            n_eval_episodes=train_n_eval_episodes,
+            n_eval_episodes=1 if args.test else 5,
             best_model_save_path=f"./{LOG_DIR}/eval/{START_TIME}",
             log_path=f"./{LOG_DIR}/eval/{START_TIME}",
-            eval_freq=eval_freq,
+            eval_freq=5 if args.test else 10_000,
         )
         callbacks.append(eval_callback)
 
@@ -125,7 +135,7 @@ def main():
 
         # Train for a certain number of timesteps
         model.learn(
-            total_timesteps=total_timesteps,
+            total_timesteps=10 if args.test else 250_000,
             tb_log_name=f"{args.algorithm}_airsim_drone_run_{START_TIME}",
             **kwargs
         )
@@ -136,6 +146,7 @@ def main():
         if not args.load:
             raise ValueError("Specify model to evaluate with -l/--load")
 
+        n_eval_episodes = 10 if args.test else 1000
         print(f'Evaluating model for {n_eval_episodes} episodes')
         mean_reward, std_reward = evaluate_policy(model, env, n_eval_episodes=n_eval_episodes, deterministic=True)
         print(f"mean_reward={mean_reward:.2f} +/- {std_reward}")
