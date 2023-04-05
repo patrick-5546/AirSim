@@ -96,9 +96,6 @@ def main():
         elif args.algorithm == RLAlgorithm.PPO:
             model = PPO.load(args.load)
 
-        # start learning right away
-        model.learning_starts = 0
-
         # print the saved hyperparameters
         print("loaded:", "gamma =", model.gamma, "num_timesteps =", model.num_timesteps)
 
@@ -106,6 +103,9 @@ def main():
         model.set_env(env)
 
     if not args.evaluate:
+        # start learning right away
+        model.learning_starts = 0
+
         # Create an evaluation callback with the same env
         callbacks = []
         eval_callback = EvalCallback(
