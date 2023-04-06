@@ -230,6 +230,7 @@ class AirSimDroneEnv(AirSimEnv):
         ).join()
 
     def _compute_reward(self):
+        THRESH_SPEED = 2
         THRESH_DIST = 4
         # graph of distance and speed reward functions: https://www.desmos.com/calculator/y8hkqxui3r
         # reward function constants
@@ -241,54 +242,68 @@ class AirSimDroneEnv(AirSimEnv):
             reward = -100
             done = 1
             done_reason = 'collision'
+            return reward, done, done_reason
+
+        # distance
+        center_dist, dist, reached_destination, advanced = self._get_dist(THRESH_DIST)
+        if self.verbose:
+            print(f'{dist=:.2f}', f'last_dist={self.last_dist:.2f}',  sep=' ', end=' ')
+        if reached_destination:
+            reward = 1000
+            done = 1
+            done_reason = 'reached destination'
+        elif center_dist > THRESH_DIST:
+            reward = -10
+            done = 1
+            done_reason = f'center_dist{{{center_dist:.2f}}}>THRESH_DIST{{{THRESH_DIST:.2f}}}'
+        if done:
+            return reward, done, done_reason
+
+        # speed
+        speed = np.linalg.norm([
+            self.state["velocity"].x_val,
+            self.state["velocity"].y_val,
+            self.state["velocity"].z_val,
+        ])
+        if speed > THRESH_SPEED:
+            reward = -5
+            done = 1
+            done_reason = f'speed{{{speed:.2f}}}>THRESH_SPEED{{{THRESH_SPEED:.2f}}}'
+            return reward, done, done_reason
+
+        reward = 0
+
+        # distance component of reward
+        if self.dist_mode == DistMode.CENTER:
+            reward_dist = math.exp(-DIST_CENTER_DECAY * dist) - 0.5
         else:
-            center_dist, dist, reached_destination, advanced = self._get_dist(THRESH_DIST)
+            # negative reward if not moving towards destination
+            reward_dist = self.last_dist - dist - 0.5
+        self.last_dist = dist
+        if self.verbose:
+            print(f'{reward_dist=:.2f}', sep=' ', end=' ')
+        reward += reward_dist
+
+        # speed component of reward
+        if self.dist_mode == DistMode.CENTER:
+            reward_speed = -math.exp(-SPEED_DECAY * speed) + 0.5
             if self.verbose:
-                print(f'{center_dist=:.2f}, {dist=:.2f}', f'last_dist={self.last_dist:.2f}',  sep=' ', end=' ')
+                print(f'{speed=:.2f}', f'{reward_speed=:.2f}', sep=' ', end=' ')
 
-            if reached_destination:
-                reward = 1000
-                done = 1
-                done_reason = 'reached destination'
-            elif center_dist > THRESH_DIST:
-                reward = -10
-                done = 1
-                done_reason = f'center_dist{{{center_dist:.2f}}}>THRESH_DIST{{{THRESH_DIST:.2f}}}'
-            else:
-                # distance component of reward
-                if self.dist_mode == DistMode.CENTER:
-                    reward = math.exp(-DIST_CENTER_DECAY * dist) - 0.5
-                else:
-                    reward = self.last_dist - dist
-                if self.verbose:
-                    print(f'reward_dist={reward:.2f}', sep=' ', end=' ')
-                self.last_dist = dist
+            reward += reward_speed
 
-                # speed component of reward
-                if self.dist_mode == DistMode.CENTER:
-                    speed = np.linalg.norm([
-                        self.state["velocity"].x_val,
-                        self.state["velocity"].y_val,
-                        self.state["velocity"].z_val,
-                        ])
-                    reward_speed = -math.exp(-SPEED_DECAY * speed) + 0.5
-                    if self.verbose:
-                        print(f'{speed=:.2f}', f'{reward_speed=:.2f}', sep=' ', end=' ')
+        # reward if advanced
+        if advanced:
+            reward_advanced = 100
+            if self.verbose:
+                print(f'{reward_advanced=:.2f}', sep=' ', end=' ')
+            reward += reward_advanced
 
-                    reward += reward_speed
+        if self.verbose:
+            print(f'{reward=:.2f}')
 
-                # reward if advanced
-                if advanced:
-                    reward_advanced = 100
-                    if self.verbose:
-                        print(f'{reward_advanced=:.2f}', sep=' ', end=' ')
-                    reward += reward_advanced
-
-                if self.verbose:
-                    print(f'{reward=:.2f}')
-
-                done = 0
-                done_reason = ''
+        done = 0
+        done_reason = ''
 
         return reward, done, done_reason
 
