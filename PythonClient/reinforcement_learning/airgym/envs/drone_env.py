@@ -256,6 +256,8 @@ class AirSimDroneEnv(AirSimEnv):
             reward = -10
             done = 1
             done_reason = f'center_dist{{{center_dist:.2f}}}>THRESH_DIST{{{THRESH_DIST:.2f}}}'
+        else:
+            done = 0
         if done:
             return reward, done, done_reason
 

@@ -25,6 +25,7 @@ class RLAlgorithm(Enum):
     def __str__(self):
         return self.value
 
+
 def main():
     args = get_args()
     env = get_env(args)
@@ -44,6 +45,7 @@ def get_args():
     parser.add_argument("-t", "--test", action="store_true",
                         help="test mode: small total timesteps and increase verbosity")
     return parser.parse_args()
+
 
 def get_env(args):
     # create a DummyVecEnv for main airsim gym env
@@ -86,7 +88,7 @@ def get_model(args, env):
         print("initializing", args.algorithm, "model")
         if args.algorithm == RLAlgorithm.DQN:
             model = DQN(
-                buffer_size=200_000,
+                buffer_size=100_000,
                 learning_starts=10_000,
                 **common_kwargs
             )
@@ -113,9 +115,6 @@ def get_model(args, env):
 def execute(args, env, model):
     """Train or evaluate model."""
     if not args.evaluate:
-        # start learning right away
-        model.learning_starts = 0
-
         # Create an evaluation callback with the same env
         callbacks = []
         eval_callback = EvalCallback(
@@ -135,7 +134,7 @@ def execute(args, env, model):
 
         # Train for a certain number of timesteps
         model.learn(
-            total_timesteps=10 if args.test else 250_000,
+            total_timesteps=10 if args.test else 100_000,
             tb_log_name=f"{args.algorithm}_airsim_drone_run_{START_TIME}",
             **kwargs
         )
@@ -146,7 +145,7 @@ def execute(args, env, model):
         if not args.load:
             raise ValueError("Specify model to evaluate with -l/--load")
 
-        n_eval_episodes = 10 if args.test else 1000
+        n_eval_episodes = 5 if args.test else 20
         print(f'Evaluating model for {n_eval_episodes} episodes')
         mean_reward, std_reward = evaluate_policy(model, env, n_eval_episodes=n_eval_episodes, deterministic=True)
         print(f"mean_reward={mean_reward:.2f} +/- {std_reward}")
