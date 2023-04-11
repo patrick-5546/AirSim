@@ -1,0 +1,6 @@
+msgpack-rpc-python
+npzviewer
+numpy==1.23.5
+rl_zoo3
+stable-baselines3[extra]
+torch-tb-profiler
