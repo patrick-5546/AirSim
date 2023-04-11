@@ -29,6 +29,7 @@ class PathSelection(Enum):
     NH_0 = "nh_0"
     NH_1 = "nh_1"
     LM_0 = "lm_0"
+    LM_1 = "lm_1"
 
     def __str__(self):
         return self.value
@@ -42,6 +43,7 @@ class Path():
     2. Select start position, (x, y, z, speed), where `speed` is the navigation speed to the starting position
         1. Run dqn_drone.py in test mode so that the position, path, and distance to path is printed
         2. Finetune (x, y, z) such that distance is minimized (<1)
+            2. Set `action` in `interpret_action()` to `6` to minimize its movement
             1. Because of momentum, the greater `speed` is, the further from (x, y, z) you will be
     """
     # neighborhood paths
@@ -56,6 +58,7 @@ class Path():
     ]
     NH_1_START_POS = NH_0_START_POS
     NH_1 = NH_0[:2]
+
     # landscape mountain paths
     LM_0_START_POS = (0, -24, -15.5, 10)
     LM_0 = [
@@ -68,6 +71,8 @@ class Path():
             (541.3474, 143.6714, -32.07256),
         ]
     ]
+    LM_1_START_POS = (0, -5, -5, 5)
+    LM_1 = [np.array([0, -8.4, -5.3])] + LM_0
 
     def __init__(self, path):
         self.name = str(path).upper()
@@ -81,6 +86,9 @@ class Path():
         elif path == PathSelection.LM_0:
             self.start_pos = Path.LM_0_START_POS
             self.path = Path.LM_0
+        elif path == PathSelection.LM_1:
+            self.start_pos = Path.LM_1_START_POS
+            self.path = Path.LM_1
         else:
             raise NameError(f'Path {self.name} not found')
 
